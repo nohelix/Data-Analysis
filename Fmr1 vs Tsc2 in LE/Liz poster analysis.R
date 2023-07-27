@@ -122,37 +122,41 @@ TH_table %>%
 
 # TH Graphs ---------------------------------------------------------------
 
+graph_line = "Tsc2-LE"
+
 TH_table %>%
   # use only comparable data
   filter(Duration == 50 & detail == "Alone") %>%
   filter(Frequency != 0) %>%
+  # limit to one line
+  filter(line ==  graph_line) %>%
   mutate(Frequency = glue("{Frequency} kHz") %>% 
            factor(levels = c("4 kHz", "8 kHz", "16 kHz", "32 kHz"))) %>%
-  {if (drop_TP3) filter(., rat_name != "TP3")} %>%
-  mutate(genotype = factor(genotype, levels = c("KO", "WT", "Het"))) %>%
-  ggplot(aes(x = interaction(genotype, line) %>%
-               factor(labels = c("KO", "WT\n(FXS)", "WT\n(TSC)", "Het")), 
-             y = TH, fill = genotype, color = line, group = interaction(genotype, line))) +
-  geom_boxplot(position = position_dodge(1), linewidth = 1, width = 0.8) +
-  stat_summary(fun.data = n_fun, geom = "text", show.legend = FALSE, position = position_dodge(1), vjust = 2, size = 3) +
-  scale_color_manual(values = c("Tsc2-LE" = "darkblue", "Fmr1-LE" = "red")) +
-  scale_fill_manual(values = c("WT" = "black", "Het" = "deepskyblue", "KO" = "lightcoral")) +
+  # {if (drop_TP3) filter(., rat_name != "TP3")} %>%
+  mutate(genotype = factor(genotype, levels = c("WT", "KO", "Het"))) %>%
+  ggplot(aes(x = genotype, 
+             y = TH, fill = genotype, group = genotype)) +
+  geom_boxplot(position = position_dodge(1), linewidth = 1, width = 0.8, color = "grey40") +
+  # stat_summary(fun.data = n_fun, geom = "text", show.legend = FALSE, position = position_dodge(1), vjust = 2, size = 3) +
+  # scale_color_manual(values = c("Tsc2-LE" = "darkblue", "Fmr1-LE" = "red")) +
+  scale_fill_manual(values = c("WT" = "black", "Het" = "deepskyblue", "KO" = "red")) +
   labs(x = "",
        y = "Threshold (dB, mean +/- SE)",
-       caption = if_else(drop_TP3, "Without Het F TP3", "With TP3"),
+       caption = if_else(drop_TP3 & graph_line == "Tsc2-LE", "Without Het F TP3", ""),
        fill = "Genotype") +
   facet_wrap( ~ Frequency, ncol = 5, scales = "free_x") +
   theme_classic() +
   theme(
     plot.title = element_text(hjust = 0.5),
-    panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255))
+    panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+    legend.position = "none"
   )
 
 # Save last graph
-ggsave(filename = "TH Plot.jpg", # name of file
+ggsave(filename = glue("TH Plot {graph_line}.jpg"), # name of file
        path = save_folder, # location where file will save
        plot = last_plot(),
-       width = 8, height = 6, units = "in", dpi = 300) # dimensions of saved file
+       width = 4, height = 6, units = "in", dpi = 300) # dimensions of saved file
 
 # Get Reaction times by rat -----------------------------------------------
 # NOTE: this is slow
@@ -222,10 +226,13 @@ print(Rxn.stats)
 
 # Rxn Graphs --------------------------------------------------------------
 
+graph_line = "Fmr1-LE"
+
 # All Frequencies Graph
 Rxn_table %>%
-  filter(Intensity > 5) %>%
+  filter(Intensity >= 30) %>%
   filter(Frequency != 0) %>%
+  filter(line ==  graph_line) %>%
   # Remove the 5's as they tend to make the line ugly
   filter(! str_detect(Intensity, pattern = "5$")) %>%
   mutate(Frequency = as.factor(Frequency)) %>%
@@ -243,46 +250,48 @@ Rxn_table %>%
                fun = mean, geom = "line", position = position_dodge(1)) +
   labs(x = "Intensity (dB)",
        y = "Reaction time (ms, mean +/- SE)",
-       color = "Genotype",
-       caption = if_else(drop_TP3, "Without Het F TP3", "With TP3")) +
+       caption = if_else(drop_TP3 & graph_line == "Tsc2-LE", "Without Het F TP3", ""),
+       color = "Genotype") +
   # scale_linetype_manual(values = c("Fmr1-LE" = "solid", "Tsc2-LE" = "longdash")) +
   scale_color_manual(values = c("WT" = "black", "Het" = "deepskyblue", "KO" = "red")) +
   scale_x_continuous(breaks = seq(0, 90, by = 10)) +
-  facet_wrap(~ line, scales = "free_y") +
+  # facet_wrap(~ line, scales = "free_y") +
   theme_classic() +
   theme(
     plot.title = element_text(hjust = 0.5),
     panel.grid.major.x = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255))
   ) +
-  theme(legend.background = element_blank())
+  theme(legend.background = element_blank(),
+        legend.position = c(0.9, 0.8))
 
 
 # Save last graph
-ggsave(filename = "Rxn graph.jpg", # name of file
+ggsave(filename = glue("Rxn graph {graph_line}.jpg"), # name of file
        path = save_folder, # location where file will save
        plot = last_plot(),
-       width = 8, height = 6, units = "in", dpi = 300) # dimensions of saved file
+       width = 6, height = 6, units = "in", dpi = 300) # dimensions of saved file
 
 # Average Rxn box plots
 Rxn_table %>%
   filter(Intensity >= 50) %>%
   filter(Frequency != 0) %>%
+  filter(line ==  graph_line) %>%
   mutate(Frequency = glue("{Frequency} kHz") %>% 
            factor(levels = c("4 kHz", "8 kHz", "16 kHz", "32 kHz")),
          genotype = factor(genotype, levels = c("KO", "WT", "Het"))) %>%
   {if (drop_TP3) filter(., rat_name != "TP3")} %>%
-  ggplot(aes(x = interaction(genotype, line) %>%
-               factor(labels = c("KO", "WT\n(FXS)", "WT\n(TSC)", "Het")), 
-             y = Rxn, fill = genotype, color = line, group = interaction(genotype, line))) +
-    geom_boxplot(position = position_dodge(1), linewidth = 1, width = 0.8) +
-    scale_color_manual(values = c("Tsc2-LE" = "darkblue", "Fmr1-LE" = "red")) +
-    scale_fill_manual(values = c("WT" = "black", "Het" = "deepskyblue", "KO" = "lightcoral")) +
+  ggplot(aes(x = genotype, y = Rxn, 
+             fill = genotype, group = genotype)) +
+    geom_boxplot(position = position_dodge(1), linewidth = 1, width = 0.8, color = "grey40") +
+    # scale_color_manual(values = c("Tsc2-LE" = "darkblue", "Fmr1-LE" = "red")) +
+    scale_fill_manual(values = c("WT" = "black", "Het" = "deepskyblue", "KO" = "red")) +
     # You can add annotations:
-    geom_text(data = Rxn.stats, aes(x = x, label = Sig), size = 12, show.legend = FALSE) +
+    geom_text(data = filter(Rxn.stats, line ==  graph_line), 
+              aes(x = 1.5, label = Sig), size = 12, show.legend = FALSE) +
     ylim(150, 550) +
     labs(x = "",
          y = "Threshold (dB, mean +/- SE)",
-         caption = if_else(drop_TP3, "Without Het F TP3", "With TP3"),
+         caption = if_else(drop_TP3 & graph_line == "Tsc2-LE", "Without Het F TP3", ""),
          fill = "Genotype") +
     facet_wrap( ~ Frequency, ncol = 5) +
     theme_classic() +
@@ -291,3 +300,8 @@ Rxn_table %>%
       panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255))
     )
 
+# Save last graph
+ggsave(filename = glue("Rxn plot {graph_line}.jpg"), # name of file
+       path = save_folder, # location where file will save
+       plot = last_plot(),
+       width = 4, height = 6, units = "in", dpi = 300) # dimensions of saved file
