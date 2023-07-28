@@ -119,6 +119,55 @@ TH_table %>%
   
 # Note that the highest average TH is 50.0
 
+TH_stats_Tsc2 =
+  TH_table %>%
+    # use only comparable data
+    filter(Duration == 50 & detail == "Alone" & Frequency != 0) %>%
+    filter(line == "Tsc2-LE") %>%
+    mutate(Frequency = as.factor(Frequency)) %>%
+    {if (drop_TP3) filter(., rat_name != "TP3")} %>%
+    aov(TH ~ genotype * Frequency, data = .) %>%
+    # # Normal
+    # .$residuals %>% shapiro.test
+    # # summary
+    # summary()
+    # Post-hoc
+    TukeyHSD() %>%
+    tidy() %>%
+    filter(term == "genotype:Frequency") %>%
+    mutate(Sig = gtools::stars.pval(adj.p.value),
+           F1 = str_extract(.$contrast, '\\:[:digit:]+?\\-') %>% str_remove("\\:")%>% str_remove("\\-"),
+           F2 = str_extract(.$contrast, '\\:[:digit:]+?$') %>% str_remove("\\:"),
+           G1 = str_extract(.$contrast, '^.+?\\:') %>% str_remove("\\:"),
+           G2 = str_extract(.$contrast, '-.+?\\:') %>% str_remove("-") %>% str_remove("\\:")
+           ) %>%
+    filter(F1 == F2 & G1 != G2)
+
+TH_stats_Fmr1 =
+  TH_table %>%
+  # use only comparable data
+  filter(Duration == 50 & detail == "Alone" & Frequency != 0) %>%
+  filter(line == "Fmr1-LE") %>%
+  mutate(Frequency = as.factor(Frequency)) %>%
+  aov(TH ~ genotype * Frequency, data = .) %>%
+  # # Normal
+  # .$residuals %>% shapiro.test
+  # # summary
+  # summary()
+  # Post-hoc
+  TukeyHSD() %>%
+  tidy() %>%
+  filter(term == "genotype:Frequency") %>%
+  mutate(Sig = gtools::stars.pval(adj.p.value),
+         F1 = str_extract(.$contrast, '\\:[:digit:]+?\\-') %>% str_remove("\\:")%>% str_remove("\\-"),
+         F2 = str_extract(.$contrast, '\\:[:digit:]+?$') %>% str_remove("\\:"),
+         G1 = str_extract(.$contrast, '^.+?\\:') %>% str_remove("\\:"),
+         G2 = str_extract(.$contrast, '-.+?\\:') %>% str_remove("-") %>% str_remove("\\:")
+  ) %>%
+  filter(F1 == F2 & G1 != G2)
+  
+
+
 
 # TH Graphs ---------------------------------------------------------------
 
@@ -142,7 +191,7 @@ TH_table %>%
   scale_fill_manual(values = c("WT" = "black", "Het" = "deepskyblue", "KO" = "red")) +
   labs(x = "",
        y = "Threshold (dB, mean +/- SE)",
-       caption = if_else(drop_TP3 & graph_line == "Tsc2-LE", "Without Het F TP3", ""),
+       # caption = if_else(drop_TP3 & graph_line == "Tsc2-LE", "Without Het F TP3", ""),
        fill = "Genotype") +
   facet_wrap( ~ Frequency, ncol = 5, scales = "free_x") +
   theme_classic() +
@@ -156,7 +205,7 @@ TH_table %>%
 ggsave(filename = glue("TH Plot {graph_line}.jpg"), # name of file
        path = save_folder, # location where file will save
        plot = last_plot(),
-       width = 4, height = 6, units = "in", dpi = 300) # dimensions of saved file
+       width = 6, height = 3, units = "in", dpi = 300) # dimensions of saved file
 
 # Get Reaction times by rat -----------------------------------------------
 # NOTE: this is slow
@@ -226,7 +275,7 @@ print(Rxn.stats)
 
 # Rxn Graphs --------------------------------------------------------------
 
-graph_line = "Fmr1-LE"
+graph_line = "Tsc2-LE"
 
 # All Frequencies Graph
 Rxn_table %>%
@@ -288,20 +337,21 @@ Rxn_table %>%
     # You can add annotations:
     geom_text(data = filter(Rxn.stats, line ==  graph_line), 
               aes(x = 1.5, label = Sig), size = 12, show.legend = FALSE) +
-    ylim(150, 550) +
+    ylim(150, 600) +
     labs(x = "",
-         y = "Threshold (dB, mean +/- SE)",
-         caption = if_else(drop_TP3 & graph_line == "Tsc2-LE", "Without Het F TP3", ""),
+         y = "Reaction time (ms, mean +/- SE)",
+         # caption = if_else(drop_TP3 & graph_line == "Tsc2-LE", "Without Het F TP3", ""),
          fill = "Genotype") +
     facet_wrap( ~ Frequency, ncol = 5) +
     theme_classic() +
     theme(
       plot.title = element_text(hjust = 0.5),
-      panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255))
+      panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+      legend.position = "none"
     )
 
 # Save last graph
 ggsave(filename = glue("Rxn plot {graph_line}.jpg"), # name of file
        path = save_folder, # location where file will save
        plot = last_plot(),
-       width = 4, height = 6, units = "in", dpi = 300) # dimensions of saved file
+       width = 6, height = 3, units = "in", dpi = 300) # dimensions of saved file
