@@ -273,42 +273,45 @@ discrimination_FA_n_table_by_Type %>%
   arrange(Type) %>%
   print
 
-ggplot(discrimination_FA_table_by_type %>%
-         filter(detail == "Normal" & Range != "5-7" & !is.na(Range)), 
-       aes(x = octave_steps, y = FA_percent_detailed * 100,
-           color = genotype, fill = Range, linetype = detail,
-           group = interaction(Range, detail, line, genotype))) +
-  geom_hline(yintercept = 50, color = "forestgreen", linewidth = 1.5) +
-  # mean for genotypes across all frequencies
-  stat_summary(aes(group = interaction(detail, line, genotype)),
-               fun = mean, geom = "line", linewidth = 1.5, position = position_dodge(.2)) +
-  # mean for each frequency by genotype
-  stat_summary(aes(shape = line), fun = mean, geom = "point",
-               position = position_dodge(.2), size = 2, stroke = 2) +
-  # add labels by x-axis
-  # geom_text(data = tibble(octave_steps = 12, FA_percent_detailed = 0,
-  #                         tone = "No Go", genotype = "WT", line = "Fmr1", detail = "Normal"),
-  #           aes(label = tone), size = 5, show.legend = FALSE, vjust = 2, hjust = -0.2,
-  #           family = "EconSansCndReg") +
-  geom_text(data = tibble(octave_steps = 1, FA_percent_detailed = 0,
-                          tone = "Go", genotype = "WT", line = "Fmr1", detail = "Normal", Range = NA),
-            aes(label = tone), size = 4, show.legend = FALSE, vjust = 3.1, hjust = 4,
-            family = "EconSansCndReg") +
-  # # Graph lines for each individual
-  # Note, alpha <1 not working (lines disappearing) for some reason
-  # geom_line(aes(group = interaction(detail, line, genotype, as.factor(rat_ID)))) + 
-  coord_cartesian(clip = "off") +
-  scale_x_continuous(breaks = seq(0, 12, by = 2)) +
-  scale_y_continuous(limits = c(0, 100)) +
-  scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
-  scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
-  scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
-  labs(x = "Octave Step",
-       y = "False Alarm %",
-       title = "Discrimination across an octave by zoom grouping",
-       fill = "Range", shape = "Line",
-       color = "Genotype", linetype = "Detail") +
-  theme_ipsum_es()
+Octave_graph_by_Range =
+  ggplot(discrimination_FA_table_by_type %>%
+           filter(detail == "Normal" & Range != "5-7" & !is.na(Range)), 
+         aes(x = octave_steps, y = FA_percent_detailed * 100,
+             color = genotype, fill = Range, linetype = detail,
+             group = interaction(Range, detail, line, genotype))) +
+    geom_hline(yintercept = 50, color = "forestgreen", linewidth = 1.5) +
+    # mean for genotypes across all frequencies
+    stat_summary(aes(group = interaction(detail, line, genotype)),
+                 fun = mean, geom = "line", linewidth = 1.5, position = position_dodge(.2)) +
+    # mean for each frequency by genotype
+    stat_summary(aes(shape = line), fun = mean, geom = "point",
+                 position = position_dodge(.2), size = 2, stroke = 2) +
+    # add labels by x-axis
+    # geom_text(data = tibble(octave_steps = 12, FA_percent_detailed = 0,
+    #                         tone = "No Go", genotype = "WT", line = "Fmr1", detail = "Normal"),
+    #           aes(label = tone), size = 5, show.legend = FALSE, vjust = 2, hjust = -0.2,
+    #           family = "EconSansCndReg") +
+    geom_text(data = tibble(octave_steps = 1, FA_percent_detailed = 0,
+                            tone = "Go", genotype = "WT", line = "Fmr1", detail = "Normal", Range = NA),
+              aes(label = tone), size = 4, show.legend = FALSE, vjust = 3.1, hjust = 4,
+              family = "EconSansCndReg") +
+    # # Graph lines for each individual
+    # Note, alpha <1 not working (lines disappearing) for some reason
+    # geom_line(aes(group = interaction(detail, line, genotype, as.factor(rat_ID)))) + 
+    coord_cartesian(clip = "off") +
+    scale_x_continuous(breaks = seq(0, 12, by = 2)) +
+    scale_y_continuous(limits = c(0, 100)) +
+    scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
+    scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
+    scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
+    labs(x = "Octave Step",
+         y = "False Alarm %",
+         title = "Discrimination across an octave by zoom grouping",
+         fill = "Range", shape = "Line",
+         color = "Genotype", linetype = "Detail") +
+    theme_ipsum_es()
+
+print(Octave_graph_by_Range)
 
 Octave_graph_Reversal_learning =
   ggplot(filter(octave_reversal_data),
