@@ -2,6 +2,8 @@ source("Fmr1 vs Tsc2 in LE data.R")
 library(ggpmisc) # for themes
 library(gridExtra)
 
+save_folder = "C:/Users/Noelle/Box/Behavior Lab/Shared/Ben/Oddball individual graphs/"
+
 n_at_mean <- function(x){
   #there are 3 positions so every rat is there in triplicate
   return(data.frame(y = mean(tail(x, n = 1)), label = paste0("n = ", length(x)/3)))
@@ -143,14 +145,19 @@ individual_graphs =
     )
 
 # print(filter(individual_graphs, rat_name == "")$oddball_single_rat_graph)
-# lapply(individual_graphs$oddball_single_rat_graph, print)
+# # Save individual graphs
+# apply(individual_graphs, 1, 
+#       function(df) ggsave(filename = glue("Oddball {df$rat_name}.jpg"), # name of file
+#                           path = save_folder, # location where file will save
+#                           plot = df$oddball_single_rat_graph,
+#                           width = 6, height = 4, units = "in", dpi = 300))
+# individual_graphs$oddball_single_rat_graph
 
-
-condition_to_graph = "Standard"
+condition_to_graph = c("Standard")
 
 oddball_frequency_graph =
   ggplot(oddball_reaction_by_frequency %>%
-           filter(str_detect(challenge, condition_to_graph)), 
+           filter(challenge %in% condition_to_graph), 
          aes(x = position, y = reaction,
              color = interaction(line, genotype), fill = frequency,
              group = interaction(line, genotype))) +
@@ -172,11 +179,11 @@ oddball_frequency_graph =
          fill = "Frequency", shape = "Frequency", linetype = "Frequency",
          color = "Genotype") +
     # table on graph
-    annotate(geom = "table", x = 6, y = 300, 
-             label = list(filter(oddball_reaction_by_frequency, str_detect(challenge, condition_to_graph)) %>%
+    annotate(geom = "table", x = 5.9, y = 290, 
+             label = list(filter(oddball_reaction_by_frequency, challenge %in% condition_to_graph) %>%
                             group_by(line, genotype, challenge) %>% 
                             summarise(n = length(unique(rat_ID)), .groups = "drop") %>%
-                            select(line, genotype, n)
+                            select(line, genotype, challenge, n)
                           ),
              table.theme = ttheme_gtplain(
                padding = unit(c(1, 0.9), "char")
@@ -184,7 +191,43 @@ oddball_frequency_graph =
              vjust = -2, hjust = -0.25) +
     theme_ipsum_es()
 
-print(oddball_frequency_graph)
+# print(oddball_frequency_graph)
+
+oddball_frequency_basecase =
+  ggplot(oddball_reaction_by_frequency %>%
+           filter(challenge %in% c("Standard", "Reset", "Base Case 2")), 
+         aes(x = position, y = reaction_norm,
+             color = interaction(line, genotype), shape = challenge,
+             group = interaction(line, genotype, challenge))) +
+  # geom_smooth(se = FALSE, linewidth = 2) +
+  # mean for genotypes across all frequencies
+  stat_summary(fun = mean, geom = "line", linewidth = 2) +
+  # mean for each frequency by genotype
+  stat_summary(geom = "line", fun = mean) +
+  # geom_point(aes(shape = frequency), size = 5) +
+  stat_summary(fun = mean, geom = "point", size = 5) +
+  scale_color_manual(values = c("Tsc2.WT" = "grey40", "Tsc2.Het" = "blue", 
+                                "Fmr1.WT" = "black", "Fmr1.KO" = "red")) +
+  # scale_shape_manual(values = c("4" = 21, "8" = 22, "16" = 23, "32" = 24)) +
+  scale_x_continuous(breaks = seq(2, 6, by = 1)) +
+  labs(x = "Position of different 'go tone'",
+       y = "Reaction time", shape = "Challenge",
+       color = "Genotype") +
+  # table on graph
+  annotate(geom = "table", x = 5.9, y = 1, 
+           label = list(filter(oddball_reaction_by_frequency, challenge %in% condition_to_graph) %>%
+                          group_by(line, genotype, challenge) %>% 
+                          summarise(n = length(unique(rat_ID)), .groups = "drop") %>%
+                          select(line, genotype, challenge, n)
+           ),
+           table.theme = ttheme_gtplain(
+             padding = unit(c(0.9, 0.9), "char")
+           ),
+           vjust = -2, hjust = -0.25) +
+  theme_ipsum_es()
+
+print(oddball_frequency_basecase)
+
 
 oddball_BG_graph_table = 
   oddball_reaction_n_table %>%
