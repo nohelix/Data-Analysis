@@ -1,5 +1,6 @@
 source("Fmr1 vs Tsc2 in LE data.R")
 library(ggpmisc) # for easy adding of tables to graph
+library(glue)
 
 # Get core data -----------------------------------------------------------
 octave_core_columns = c("date", "rat_name", "rat_ID",
@@ -8,6 +9,8 @@ octave_core_columns = c("date", "rat_name", "rat_ID",
                  "FA_detailed", "reaction", "FA_percent", "hit_percent")
 
 octave_core_data = dataset %>% 
+  # remove invalid data
+  filter(invalid != "TRUE") %>%
   # Get essential columns in usable form; expands the dataframe
   unnest_wider(assignment) %>% unnest_wider(stats) %>%
   select(all_of(octave_core_columns)) %>%
@@ -82,6 +85,49 @@ discrimination_FA_table_by_type =
   summarise(FA_percent_detailed = mean(FA_percent_detailed, na.rm = TRUE),
             .groups = "drop")
 
+# Training stuff ----------------------------------------------------------
+
+octave_training_data = 
+  octave_core_data %>%
+    filter(task == "Training") %>%
+    summarise(days = n(), Genotype = unique(Genotype), 
+              genotype = unique(genotype), line = unique(line), 
+              .by = c(rat_ID, detail))
+
+# octave_training_stats =
+  aov(days ~ Genotype * detail, 
+      data = octave_training_data) %>%
+    # # Normal
+    # .$residuals %>% shapiro.test()
+    summary() %>%
+    print
+  
+stats_Fmr1_learning = 
+  t.test(days ~ Genotype, paired = FALSE, alternative = "two.sided",
+         data = filter(octave_training_data, line == "Fmr1" & detail == "Normal"))
+# stats_Fmr1_reverse = 
+  # t.test(days ~ Genotype, paired = FALSE, alternative = "two.sided",
+  #        data = filter(octave_training_data, line == "Fmr1" & detail == "Reversed"))
+  
+stats_Tsc2_learning = 
+  t.test(days ~ Genotype, paired = FALSE, alternative = "two.sided",
+         data = filter(octave_training_data, line == "Tsc2" & detail == "Normal"))
+# stats_Tsc2_reverse = 
+  # t.test(days ~ Genotype, paired = FALSE, alternative = "two.sided",
+  #        data = filter(octave_training_data, line == "Tsc2" & detail == "Reversed"))
+
+stats_learning =
+  tidy(stats_Fmr1_learning) %>%
+  mutate(line = "Fmr1", detail = "Normal", x = 1.5) %>%
+  bind_rows(tidy(stats_Tsc2_learning) %>%
+              mutate(line = "Tsc2", detail = "Normal", x = 3.5)) %>%
+  rename(t = statistic, df = parameter) %>%
+  mutate(Genotype = NA, genotype = NA,
+         adj.p.value = p.adjust(p.value, n = 4, method = "bonferroni"),
+         Sig = stars.pval(adj.p.value))
+
+# N tables ----------------------------------------------------------------
+
 discrimination_FA_n_table = 
   group_by(discrimination_FA_table, line, detail, genotype) %>% 
     summarise(n = length(unique(rat_ID)), .groups = "drop") %>% 
@@ -103,7 +149,6 @@ octave_training_table =
   transmute(Genotype = paste(line, genotype, sep = "."), 
             detail = detail, n = n) %>%
   arrange(Genotype, detail)
-  
   
 
 # Reversal ----------------------------------------------------------------
@@ -140,7 +185,7 @@ octave_reversal_data =
 
 Octave_graph_all =
   ggplot(filter(discrimination_FA_table,
-                ! detail %in% c("Reversed")), 
+                ! detail %in% c("Reversed", "Reversed, Punished")), 
          aes(x = octave_steps, y = FA_percent_detailed * 100,
              color = genotype, fill = line, linetype = detail,
              group = interaction(detail, line, genotype))) +
@@ -184,7 +229,7 @@ print(Octave_graph_all)
 
 Octave_graph =
   ggplot(discrimination_FA_table %>%
-           filter(detail %in% c("Normal", "Reversed")), 
+           filter(detail %in% c("Normal", "Reversed", "Reversed, Punished")), 
          aes(x = octave_steps, y = FA_percent_detailed * 100,
              color = genotype, fill = line, linetype = detail,
              group = interaction(detail, line, genotype))) +
@@ -313,6 +358,34 @@ Octave_graph_by_Range =
 
 print(Octave_graph_by_Range)
 
+
+# Learning graphs ---------------------------------------------------------
+
+Octave_learning_plot =
+  ggplot(data = octave_training_data,
+         aes(x = fct_relevel(Genotype, c("Fmr1-LE_KO", "Fmr1-LE_WT", "Tsc2_LE_WT", "Tsc2_LE_Het")), 
+             y = days, 
+             fill = genotype, color = line, 
+             group = Genotype)) +
+    geom_boxplot(linewidth = 1) +
+    # add individual points (layer 2)
+    geom_point(aes(group = interaction(rat_ID, Genotype)), 
+               shape = 1, show.legend = FALSE) +
+    # Add p values labels (layer 3)
+    geom_text(data = stats_learning, 
+              aes(x = x, y = 78, label = glue("p = {round(adj.p.value, digits = 2)}")), 
+              size = 5, show.legend = FALSE) +
+    scale_fill_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
+    facet_wrap(~ detail) +
+    labs(x = "Genotype",
+         y = "# of days of trials to criterion",
+         title = "Learning",
+         fill = "Genotype", color = "Line") +
+    theme_ipsum_es() +
+    theme(panel.grid.major.x = element_line(colour="white", size=0.5))
+
+print(Octave_learning_plot)
+
 Octave_graph_Reversal_learning =
   ggplot(filter(octave_reversal_data),
          aes(x = day, 
@@ -357,7 +430,7 @@ Octave_graph_Reversal_learning_hit =
              color = genotype, fill = line,
              group = interaction(line, genotype))) +
   # Add criterion line
-  geom_hline(aes(yintercept = 20), linewidth = 1.5, linetype = "dashed", color = "goldenrod") +
+  geom_hline(aes(yintercept = 90), linewidth = 1.5, linetype = "dashed", color = "goldenrod") +
   # Individual lines
   geom_line(aes(group = interaction(line, genotype, rat_name)))+
   # mean for genotypes across all frequencies
@@ -366,7 +439,7 @@ Octave_graph_Reversal_learning_hit =
   stat_summary(aes(shape = line), fun = mean, geom = "point",
                position = position_dodge(.2), size = 2, stroke = 2) +
   # Mark the Day 0 is average
-  geom_text(aes(x = 1.8, y = 15, label = "Average")) +
+  geom_text(aes(x = 0, y = 101, label = "Average")) +
   # Add n table
   annotate(geom = "table", x = 8, y = 40,
            label = list(octave_training_table %>%
