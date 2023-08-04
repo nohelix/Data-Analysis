@@ -225,7 +225,7 @@ Octave_graph_all =
   guides(colour = guide_legend(override.aes = list(linewidth = 1))) +
   theme(legend.key.width = unit(1.25,"cm"))
 
-print(Octave_graph_all)
+# print(Octave_graph_all)
 
 Octave_graph =
   ggplot(discrimination_FA_table %>%
