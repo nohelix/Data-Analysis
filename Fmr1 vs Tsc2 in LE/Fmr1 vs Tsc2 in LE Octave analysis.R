@@ -3,7 +3,7 @@ library(ggpmisc) # for easy adding of tables to graph
 library(glue)
 
 # Get core data -----------------------------------------------------------
-octave_core_columns = c("date", "rat_name", "rat_ID",
+octave_core_columns = c("date", "rat_name", "rat_ID", "invalid",
                  "file_name", "experiment", "phase", "task", "detail", 
                  "stim_type", "analysis_type", "complete_block_count", 
                  "FA_detailed", "reaction", "FA_percent", "hit_percent")
@@ -194,7 +194,7 @@ Octave_graph_all =
     stat_summary(fun = mean, geom = "line", linewidth = 1.5, position = position_dodge(.2)) +
     # mean for each frequency by genotype
     stat_summary(aes(shape = line), fun = mean, geom = "point",
-                 position = position_dodge(.2), size = 2, stroke = 2) +
+                 position = position_dodge(.2), linewidth = 2, stroke = 2) +
     # add labels by x-axis
     geom_text(data = tibble(octave_steps = 12, FA_percent_detailed = 0,
                             tone = "No Go", genotype = "WT", line = "Fmr1", detail = "Normal"),

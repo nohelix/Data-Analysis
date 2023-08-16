@@ -1,7 +1,8 @@
 # Package loading ---------------------------------------------------------
 
 # data loading/manipulation
-library(readxl); library(tidyverse); library(magrittr); library(dplyr); library(tidyr); library(broom); library(glue)
+library(readxl); library(tidyverse); library(magrittr); library(dplyr);
+library(tidyr); library(broom); library(glue)
 
 # Data visualization
 library(ggplot2); library(forcats); library(gtools); library(ggpmisc)

@@ -161,8 +161,8 @@ Tsc2_Rxn_over_TH$Gaus = LambertW::Gaussianize(Tsc2_Rxn_over_TH$Rxn)[, 1]
 Rxn_table %>%
   {if (drop_TP3) filter(., rat_name != "TP3")} %>%
   filter(line == "Tsc2-LE") %>%
-  rename(Intensity = `Inten (dB)`) %>%
-  mutate(Frequency = str_replace_all(`Freq (kHz)`, pattern = "0", replacement = "BBN")) %>%
+  # rename(Intensity = `Inten (dB)`) %>%
+  mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN")) %>%
   filter(! str_detect(Intensity, pattern = "5$")) %>%
   filter(Intensity < 90 & Intensity > 10) %>%
   filter(Frequency == single_Frequency) %>%
