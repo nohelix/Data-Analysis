@@ -37,7 +37,8 @@ oddball_core_data = dataset %>%
                                task == "Uneven odds, 6 most frequent" ~ "End Odds",
                                task == "Uneven odds" ~ "End Odds",
                                task == "Reset" ~ "Reset",
-                               detail == "Round 2" ~ "Base Case 2",
+                               task == "Catch trials" ~ "Catch",
+                               task == "Base case" & detail == "Round 2" ~ "Base Case 2",
                                TRUE ~ str_extract(analysis_type, pattern = "(?<=\\().*(?=\\))")))
   # modify to find day after catch trials
   # group_by(rat_ID) %>% 
@@ -112,7 +113,7 @@ oddball_reaction_n_table = oddball_reaction %>%
 # 139, 145, 153
 individual_graphs =
   oddball_reaction_by_frequency %>% 
-    filter(challenge %in% c("Standard", "Base Case 2", "Middle Odds", "End Odds", "Background", "Reset")) %>%
+    filter(challenge %in% c("Standard", "Base Case 2", "Middle Odds", "End Odds", "Background", "Reset", "Catch")) %>%
     # filter(rat_name == "RP3") %>%
     group_by(rat_ID, rat_name) %>%
     do(oddball_single_rat_graph = 
@@ -131,7 +132,7 @@ individual_graphs =
                    fun = mean, geom = "point", size = 5, stroke = 2) +
       scale_shape_manual(values = c("4" = 21, "8" = 22, "16" = 23, "32" = 24)) +
       scale_color_manual(values = c("Standard" = "black", "Base Case 2" = "grey30",
-                                    "Background" = "tan4", 
+                                    "Background" = "tan4", "Catch" = "darkgreen",
                                     "End Odds" = "violetred", "Middle Odds" = "royalblue",
                                     "Reset" = "goldenrod")) +
       scale_x_continuous(breaks = seq(2, 6, by = 1)) +
@@ -146,7 +147,7 @@ individual_graphs =
 
 # print(filter(individual_graphs, rat_name == "")$oddball_single_rat_graph)
 # # Save individual graphs
-# apply(individual_graphs, 1, 
+# apply(individual_graphs, 1,
 #       function(df) ggsave(filename = glue("Oddball {df$rat_name}.jpg"), # name of file
 #                           path = save_folder, # location where file will save
 #                           plot = df$oddball_single_rat_graph,
@@ -195,9 +196,10 @@ oddball_frequency_graph =
 
 oddball_frequency_basecase =
   ggplot(oddball_reaction_by_frequency %>%
-           filter(challenge %in% c("Standard", "Reset", "Base Case 2")), 
+           filter(challenge %in% c("Standard", "Base Case 2")), 
          aes(x = position, y = reaction_norm,
-             color = interaction(line, genotype), shape = challenge,
+             color = interaction(line, genotype), 
+             shape = challenge, linetype = challenge,
              group = interaction(line, genotype, challenge))) +
   # geom_smooth(se = FALSE, linewidth = 2) +
   # mean for genotypes across all frequencies
