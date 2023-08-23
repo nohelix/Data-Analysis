@@ -1,6 +1,7 @@
 # Load Necessary Datasets -------------------------------------------------
 load(glue("{projects_folder}/run_archive.Rdata"), .GlobalEnv)
-rat_archive = fread(glue("{projects_folder}/rat_archive.csv"), select = c("Rat_ID", "DOB", "Sex", "Genotype", "HL_date"))
+rat_archive = fread(glue("{projects_folder}/rat_archive.csv"), 
+                    select = c("Rat_ID", "DOB", "Sex", "Genotype", "HL_date"))
 
 # # Individual Trial Data
 # load(paste0(projects_folder, "TTS_archive.Rdata"), .GlobalEnv)
