@@ -38,13 +38,13 @@ FA_cutoff = .41
 
 # Working directory -------------------------------------------------------
 setwd(code_folder)
-#
-#
-# # Import Data -----------------------------------------
-# # errors, post ABRs and 'maintenance' days are automatically removed
-# source(glue("{code_folder}/TTS_data.R"))
-#
-#
+
+
+# Import Data -----------------------------------------
+# errors, post ABRs and 'maintenance' days are automatically removed
+source(glue("{code_folder}/TTS_data.R"))
+
+
 # # Analysis ----------------------------------------------------------------
 # # Graph Hit, FA and Trial Count from summary data
 # # calculate hearing threshold (from all data) and remove any trials below hearing level.
