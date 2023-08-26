@@ -77,13 +77,12 @@ BBN_TempInt_Rxn =
 
 
 # Export for Ben ----------------------------------------------------------
-
-
-BBN_alone_TH_pilot %>% 
-    fwrite(paste0(save_folder, "BBN_alone_TH_pilot_", Sys.Date(),".csv"), row.names = FALSE)
-
-BBN_alone_Rxn_pilot %>% 
-  fwrite(paste0(save_folder, "BBN_alone_Rxn_pilot_", Sys.Date(),".csv"), row.names = FALSE)
+# 
+# BBN_alone_TH_pilot %>% 
+#     fwrite(paste0(save_folder, "BBN_alone_TH_pilot_", Sys.Date(),".csv"), row.names = FALSE)
+# 
+# BBN_alone_Rxn_pilot %>% 
+#   fwrite(paste0(save_folder, "BBN_alone_Rxn_pilot_", Sys.Date(),".csv"), row.names = FALSE)
 
 
 # Threshold Graph ---------------------------------------------------------
@@ -117,10 +116,10 @@ BBN_alone_TH_pilot %>%
       panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
     )
 
-ggsave(filename = "TH_BBN_pilot.jpg",
-       path = save_folder,
-       plot = last_plot(),
-       width = 8, height = 6, units = "in", dpi = 300)
+# ggsave(filename = "TH_BBN_pilot.jpg",
+#        path = save_folder,
+#        plot = last_plot(),
+#        width = 8, height = 6, units = "in", dpi = 300)
 
 BBN_TempInt_TH %>%
   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
@@ -190,10 +189,10 @@ BBN_alone_Rxn_pilot %>%
   theme(legend.position = c(0.9, 0.8),
         legend.background=element_blank())
 
-ggsave(filename = glue("BBN_alone_Rxn_pilot.jpg"),
-       path = save_folder,
-       plot = last_plot(),
-       width = 8, height = 6, units = "in", dpi = 300)
+# ggsave(filename = glue("BBN_alone_Rxn_pilot.jpg"),
+#        path = save_folder,
+#        plot = last_plot(),
+#        width = 8, height = 6, units = "in", dpi = 300)
 
 
 BBN_TempInt_Rxn %>%
@@ -215,10 +214,9 @@ BBN_TempInt_Rxn %>%
   geom_smooth(se = FALSE, na.rm = TRUE, linewidth = 1) +
   labs(x = "Intensity (dB)",
        y = "Reaction time (ms, mean +/- SE)",
-       color = "",
-       title = "Reaction curves for BBN before and after Hearing Loss",
-       caption = "Following hearing loss, there is a loss of temproal integration. We only have data for the 50ms alone for all rats."
-  ) +
+       color = "Duration", shape = "Duration",
+       title = "Reaction curves for BBN showing temporal integration at baseline"
+       ) +
   scale_x_continuous(breaks = seq(-50, 90, by = 10)) +
   theme_classic() +
   theme(
