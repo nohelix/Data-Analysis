@@ -5,7 +5,11 @@ library(readxl); library(tidyverse); library(magrittr); library(dplyr);
 library(tidyr); library(broom); library(glue)
 
 # Data visualization
-library(ggplot2); library(forcats); library(gtools); library(ggpmisc)
+library(ggplot2); library(forcats); library(gtools); library(ggpmisc);
+library(FSA) # for SE error bars
+
+# Graph saving
+library(svglite)
 
 # Working directory -------------------------------------------------------
 ProjectFolder = "C:/Users/Noelle/Box/ABR recordings/ABR Results/11-13kHz HHL/"
@@ -50,30 +54,42 @@ HHL_ABR_data %>%
 # RMS Grant Graph ---------------------------------------------------------------
 # Signal-to-Noise ratio for BBN, significant for 70-90dB
 
-To_Graph  %>%
+RMS_graph =
+  HHL_ABR_data  %>%
+    filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
     ggplot(aes(x = Inten, y = RMS, color = Condition, group = Condition)) +
     stat_summary(fun = mean,
                  fun.min = function(x) mean(x) - se(x),
                  fun.max = function(x) mean(x) + se(x),
-               geom = "errorbar", width = 3) +
+                 geom = "errorbar", width = 2) +
     stat_summary(fun = mean, geom = "point", size = 3) +
     stat_summary(fun = mean, geom = "line") +
     scale_x_continuous(limits = c(10, 100), breaks = c(20, 40, 60, 80, 100)) +
     labs(x = "Sound Intensity (dB)",
          y = "Signal-to-Noise Ratio (RMS)") +
-  facet_wrap( ~ Freq, nrow = 2) +
+    facet_wrap( ~ Freq, scales = "fixed", nrow = 3) +
     theme_classic() +
     theme(
       text = element_text(size = 12),
-    panel.grid.major.x = element_line(color = "white"),
-    legend.position = c(0.8, 0.2)
+      panel.grid.major.x = element_line(color = "grey90"),
+      panel.grid.major.y = element_line(color = "white"),
+      legend.position = c(0.8, 0.15)
     )
+print(RMS_graph)
 
 ggsave("11-13kHz_HHL_RMS.jpg",
-       plot = last_plot(), # or an explicit ggplot object name
+       dpi = 300, width = 9, height = 8, units = "in",
+       plot = RMS_graph, # or an explicit ggplot object name
        path = ProjectFolder)
 
-Graph_detailed  %>%
+ggsave("11-13kHz_HHL_RMS.svg",
+       dpi = 300, width = 9, height = 8, units = "in",
+       plot = RMS_graph, # or an explicit ggplot object name
+       path = ProjectFolder)
+
+RMS_graph_detailed =
+  HHL_ABR_data  %>%
+    filter(Condition %in% c("Baseline", "Hearing Loss", "4-5 week")) %>%
     ggplot(aes(x = Inten, y = RMS, color = Condition, group = Condition)) +
     stat_summary(fun = mean,
                  fun.min = function(x) mean(x) - se(x),
@@ -91,9 +107,11 @@ Graph_detailed  %>%
       panel.grid.major.x = element_line(color = "white"),
       legend.position = c(0.9, 0.2)
     )
+print(RMS_graph_detailed)
 
 ggsave("11-13kHz_HHL_RMS_4-48kHz.jpg",
-       plot = last_plot(), # or an explicit ggplot object name
+       dpi = 300, width = 9, height = 5, units = "in",
+       plot = RMS_graph_detailed, # or an explicit ggplot object name
        path = ProjectFolder)
 
 # RMS ANOVA -------------------------------------------------------------------
