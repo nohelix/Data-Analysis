@@ -12,33 +12,38 @@ ProjectFolder = "C:/Users/Noelle/Box/ABR recordings/ABR Results/11-13kHz HHL/"
 
 
 # Select Graphing Data ----------------------------------------------------
-# Can be summarized or not
 
-Graph = read_excel(glue("{ProjectFolder}Summary.xlsx"),
-                      sheet = "4-32kHz")
-Graph_detailed = read_excel(glue("{ProjectFolder}Summary.xlsx"),
+# Get data from excel spreadsheet
+ABR_data = read_excel(glue("{ProjectFolder}Summary.xlsx"),
+                      sheet = "4-32kHz", na = "NA")
+ABR_data_detailed = read_excel(glue("{ProjectFolder}Summary.xlsx"),
                                sheet = "4-48kHz", na = "NA")
 
-Graph = Graph %>%
-            mutate(Condition = fct_relevel(Condition, c("Baseline", "Hearing Loss", "1 day", "1 week")),
-                   Freq = fct_recode(as.factor(Freq), BBN = "0"),
-                   Freq = fct_relevel(Freq, c("4", "8", "BBN", "16", "32")))
-
-Graph_detailed = Graph_detailed %>%
-  mutate(Condition = fct_relevel(Condition, c("Baseline", "Hearing Loss", "1 day", "1 week")),
-         Freq = fct_recode(as.factor(Freq), BBN = "0"))
-
-To_Graph = Graph_detailed %>%
-  filter(Freq %in% c("4", "8", "16", "32", "BBN")) %>%
-  bind_rows(Graph) %>%
+HHL_ABR_data =
+  ABR_data_detailed %>%
+  bind_rows(ABR_data) %>%
+  # Get average for each rat across both ears
+  summarise(RMS = mean(RMS, na.rm = TRUE),
+            W1_amp = mean(`W1 amp (uV)`, na.rm = TRUE),
+            W1_lat = mean(`W1 latency (ms)`, na.rm = TRUE),
+            .by = c(ID, Condition, Freq, Inten)) %>%
+  # Label frequency and order
+  mutate(Freq = case_when(Freq != "0" ~ str_glue("{Freq} kHz"),
+                          Freq == "0" ~ "BBN",
+                          .default = "ERROR") %>%
+           ordered(c("4 kHz", "6 kHz", "8 kHz", "12 kHz", "16 kHz",
+                      "24 kHz", "32 kHz", "48 kHz", "BBN"))) %>%
+  # fix Condition
   mutate(Condition = str_replace_all(Condition, "[45] week", "4-5 week"),
-         Condition = fct_relevel(Condition, "Baseline", "Hearing Loss", "1 day", "1 week", "2 week", "4-5 week"))
+         Condition = ordered(Condition, c("Baseline", "Hearing Loss", "1 day",
+                                          "1 week", "2 week", "4-5 week")))
 
 
-To_Graph %>%
-  mutate(Freq = fct_relevel(Freq, c("4", "8", "16", "32", "BBN"))) %>%
-  group_by(Condition, Freq) %>%
-  summarise(n_ID = length(unique(ID)), ID = paste(unique(ID), collapse = ", "), .groups = "drop") %>%
+HHL_ABR_data %>%
+  summarise(n_ID = length(unique(ID)), ID = paste(sort(unique(ID)), collapse = ", "),
+            .by = c(Condition, Freq)) %>%
+  spread(Freq, n_ID) %>%
+  relocate(ID, .after = BBN) %>%
   print
 
 
@@ -46,46 +51,46 @@ To_Graph %>%
 # Signal-to-Noise ratio for BBN, significant for 70-90dB
 
 To_Graph  %>%
-  ggplot(aes(x = Inten, y = RMS, color = Condition, group = Condition)) +
-  stat_summary(fun = mean,
-               fun.min = function(x) mean(x) - se(x),
-               fun.max = function(x) mean(x) + se(x),
+    ggplot(aes(x = Inten, y = RMS, color = Condition, group = Condition)) +
+    stat_summary(fun = mean,
+                 fun.min = function(x) mean(x) - se(x),
+                 fun.max = function(x) mean(x) + se(x),
                geom = "errorbar", width = 3) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
-  stat_summary(fun = mean, geom = "line") +
-  scale_x_continuous(limits = c(10, 100), breaks = c(20, 40, 60, 80, 100)) +
-  labs(x = "Sound Intensity (dB)",
-       y = "Signal-to-Noise Ratio (RMS)") +
+    stat_summary(fun = mean, geom = "point", size = 3) +
+    stat_summary(fun = mean, geom = "line") +
+    scale_x_continuous(limits = c(10, 100), breaks = c(20, 40, 60, 80, 100)) +
+    labs(x = "Sound Intensity (dB)",
+         y = "Signal-to-Noise Ratio (RMS)") +
   facet_wrap( ~ Freq, nrow = 2) +
-  theme_classic() +
-  theme(
-    text = element_text(size = 12),
+    theme_classic() +
+    theme(
+      text = element_text(size = 12),
     panel.grid.major.x = element_line(color = "white"),
     legend.position = c(0.8, 0.2)
-  )
+    )
 
 ggsave("11-13kHz_HHL_RMS.jpg",
        plot = last_plot(), # or an explicit ggplot object name
        path = ProjectFolder)
 
 Graph_detailed  %>%
-  ggplot(aes(x = Inten, y = RMS, color = Condition, group = Condition)) +
-  stat_summary(fun = mean,
-               fun.min = function(x) mean(x) - se(x),
-               fun.max = function(x) mean(x) + se(x),
-               geom = "errorbar", width = 3) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
-  stat_summary(fun = mean, geom = "line") +
-  scale_x_continuous(limits = c(10, 100), breaks = c(20, 40, 60, 80, 100)) +
-  labs(x = "Sound Intensity (dB)",
-       y = "Signal-to-Noise Ratio (RMS)") +
-  facet_wrap( ~ Freq, nrow = 2) +
-  theme_classic() +
-  theme(
-    text = element_text(size = 12),
-    panel.grid.major.x = element_line(color = "white"),
-    legend.position = c(0.9, 0.2)
-  )
+    ggplot(aes(x = Inten, y = RMS, color = Condition, group = Condition)) +
+    stat_summary(fun = mean,
+                 fun.min = function(x) mean(x) - se(x),
+                 fun.max = function(x) mean(x) + se(x),
+                 geom = "errorbar", width = 3) +
+    stat_summary(fun = mean, geom = "point", size = 3) +
+    stat_summary(fun = mean, geom = "line") +
+    scale_x_continuous(limits = c(10, 100), breaks = c(20, 40, 60, 80, 100)) +
+    labs(x = "Sound Intensity (dB)",
+         y = "Signal-to-Noise Ratio (RMS)") +
+    facet_wrap( ~ Freq, nrow = 2) +
+    theme_classic() +
+    theme(
+      text = element_text(size = 12),
+      panel.grid.major.x = element_line(color = "white"),
+      legend.position = c(0.9, 0.2)
+    )
 
 ggsave("11-13kHz_HHL_RMS_4-48kHz.jpg",
        plot = last_plot(), # or an explicit ggplot object name
