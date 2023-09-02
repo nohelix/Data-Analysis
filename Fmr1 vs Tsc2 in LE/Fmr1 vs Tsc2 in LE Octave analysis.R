@@ -382,7 +382,7 @@ Octave_learning_plot =
          title = "Learning",
          fill = "Genotype", color = "Line") +
     theme_ipsum_es() +
-    theme(panel.grid.major.x = element_line(colour="white", size=0.5))
+    theme(panel.grid.major.x = element_line(colour = "white", linewidth = 0.5))
 
 print(Octave_learning_plot)
 
@@ -405,7 +405,7 @@ Octave_graph_Reversal_learning =
     # Mark the Day 0 is average
     geom_text(aes(x = 1.8, y = 15, label = "Average")) +
     # Add n table
-    annotate(geom = "table", x = 60, y = 100,
+    annotate(geom = "table", x = 70, y = 100,
              label = list(octave_training_table %>%
                             filter(detail %in% c("Reversed"))),
              table.theme = ttheme_gtplain(
