@@ -9,7 +9,8 @@ library(FSA); library(LambertW)
 # Data visualization
 library(ggplot2); library(forcats); library(gtools); library(ggpmisc); library(hrbrthemes)
 
-# Working directory -------------------------------------------------------
+
+# Variables ---------------------------------------------------------------
 ProjectFolder = "C:/Users/Noelle/Box/ABR recordings/ABR Results/11-13kHz HHL"
 
 Shams = c("244", "247")
@@ -44,32 +45,41 @@ Parametric_Test <- function(AOV.data) {
 # Can be summarized or not
 
 # Combine 4-32 & 4-48 data sets
-Wave1_data = Graph_detailed %>%
+Wave1_data =
+  Graph_detailed %>%
   bind_rows(Graph) %>%
-  filter(Freq %in% c("4", "8", "16", "32", "0")) %>%
-  # filter(Freq == "0") %>%
+  # Get average for each rat across both ears
+  summarise(RMS = mean(RMS, na.rm = TRUE),
+            W1.amp = mean(`W1 amp (uV)`, na.rm = TRUE),
+            W1.lat = mean(`W1 latency (ms)`, na.rm = TRUE),
+            .by = c(ID, Condition, Freq, Inten)) %>%
+  # Label frequency and order
+  mutate(Freq = case_when(Freq != "0" ~ str_glue("{Freq} kHz"),
+                          Freq == "0" ~ "BBN",
+                          .default = "ERROR") %>%
+           ordered(c("4 kHz", "6 kHz", "8 kHz", "12 kHz", "16 kHz",
+                     "24 kHz", "32 kHz", "48 kHz", "BBN"))) %>%
+  # fix Timepoint (currently called Condition)
+  mutate(Condition = str_replace_all(Condition, "[45] week", "4-5 week"),
+         Condition = ordered(Condition, c("Baseline", "Hearing Loss", "1 day",
+                                          "1 week", "2 week", "4-5 week"))) %>%
   rename(Timepoint = Condition) %>%
-  mutate(Timepoint = str_replace_all(Timepoint, "[45] week", "4-5 week"),
-         Timepoint = fct_relevel(Timepoint, "Baseline", "Hearing Loss", "1 day", "1 week", "2 week", "4-5 week"),
-         Freq = fct_recode(as.factor(Freq), BBN = "0") %>% fct_relevel(c("4", "8", "16", "32", "BBN")),
-         Condition = if_else(ID %in% Shams, "Sham", "TTS"))
+  # Create treatment (called Condition for ease of reading)
+  mutate(Condition = if_else(ID %in% Shams, "Sham", "TTS"))
 
 # See which rats have which data
 Wave1_data %>%
-  # mutate(Freq = fct_relevel(Freq, c("4", "8", "16", "32", "BBN"))) %>%
-  group_by(Timepoint, Freq, Condition) %>%
-  summarise(n_ID = length(unique(ID)), ID = paste(unique(ID), collapse = ", "), .groups = "drop") %>%
+  filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  summarise(n_ID = length(unique(ID)), ID = paste(unique(ID), collapse = ", "),
+            .by = c(Timepoint, Freq, Condition)) %>%
+  spread(Freq, n_ID) %>%
+  relocate(ID, .after = BBN) %>%
   print
 
 # Anova data prep
 AOV.data =
   Wave1_data %>%
   # filter(Condition == "TTS") %>%
-  group_by(ID, Freq, Inten, Timepoint, Condition) %>%
-  summarise(RMS = mean(RMS),
-            W1.amp = mean(`W1 amp (uV)`),
-            W1.lat = mean(`W1 latency (ms)`),
-            .groups = "drop")
   # Normalize to Baseline -
   # TODO: check if baseline exists and discard if it doesn't?
   group_by(ID, Freq, Inten, Condition) %>%
@@ -83,11 +93,27 @@ AOV.data$W1.amp.Gaus = LambertW::Gaussianize(AOV.data$W1.amp)[, 1]
 AOV.data$W1.lat.Gaus = LambertW::Gaussianize(AOV.data$W1.lat)[, 1]
 
 
+# TH ----------------------------------------------------------------------
+
+# Calculate from lowest Intensity
+Wave1_TH =
+  Wave1_data %>%
+    group_by(ID, Timepoint, Freq) %>%
+    do(filter(., Inten == min(Inten))) %>%
+    ungroup() %>%
+    summarise(TH = mean(Inten, na.rm = TRUE),
+              .by = c(ID, Timepoint, Freq))
+
+Wave1_TH %>%
+  group_by(Freq) %>%
+  do(dplyr::filter(., TH == max(TH)))
+
+
 # Graph -------------------------------------------------------------------
 
 # RMS, W1 latency (ms), W1 amp (uV)
 Wave1_data  %>%
-  ggplot(aes(x = Timepoint, y = `W1 latency (ms)`, color = Inten, group = Inten)) +
+  ggplot(aes(x = Timepoint, y = W1.lat, color = Inten, group = Inten)) +
   geom_smooth(aes(color = 100, group = 100)) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE),
                fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
@@ -105,9 +131,10 @@ Wave1_data  %>%
     panel.grid.major.x = element_line(color = "white"),
   )
 
+
 Wave1_data %>%
-  filter(Inten == "80") %>%
-  gather(key = "ABR", value = "value", RMS, `W1 latency (ms)`, `W1 amp (uV)`)%>%
+  filter(Inten == "80" & Freq %in% c("BBN")) %>%
+  gather(key = "ABR", value = "value", RMS, W1.lat, W1.amp) %>%
   ggplot(aes(x = Timepoint, y = value, group = Condition, color = Condition)) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE),
                fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
@@ -115,7 +142,8 @@ Wave1_data %>%
                geom = "errorbar", width = 0.1) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1.2) +
-  labs(title = "80dB Intensity Only for all Frequencies") +
+  labs(title = "80dB Intensity Only for Broadband",
+       color = "Treatment") +
   facet_wrap( ~ ABR, scale = "free", nrow = 3) +
   # theme_classic() +
   theme_ipsum_es() +
@@ -144,33 +172,28 @@ RMS.stats <-
     # Convert to table
     do.call(rbind, .) %>% as_tibble() %>% mutate_all(unlist) %>%
     # do a p adjustment and then sig label
-    mutate(adj.p.value = p.adjust(p.value, "BH"),
+    mutate(adj.p.value = p.adjust(p.value, "bonf"),
            sig = gtools::stars.pval(adj.p.value))
 
-RMS.postHoc <-
-  FSA::dunnTest(RMS ~ interaction(Freq, Timepoint, Condition),
-                data = AOV.data,
-                method = "bonf")
+RMS.stats
 
-# print(postHoc, dunn.test.results = TRUE)
+RMS.postHoc =
+  AOV.data %>%
+  group_by(Freq) %>%
+  do(
+    FSA::dunnTest(RMS ~ interaction(Timepoint, Condition),
+                  data = .,
+                  method = "none") %>% print()
+  ) %>% dplyr::select(-P.adj) %>%
+  mutate(P.adj = p.adjust(P.unadj, "bonf"),
+         Sig = gtools::stars.pval(P.adj),
+         TimePoint1 = str_extract(Comparison, pattern = '^.+?(?=\\.)'),
+         Condition1 = str_extract(Comparison, pattern = '(?<=\\.).+?(?= -)'),
+         TimePoint2 = str_extract(Comparison, pattern = '(?<= - ).+?(?=\\.)'),
+         Condition2 = str_extract(Comparison, pattern = '(?<= - ).+?$') %>% str_extract(., pattern = '(?<=\\.).+?$')) %>%
+  dplyr::select(Freq, TimePoint1, TimePoint2, Condition1, Condition2, Z, P.adj, Sig)
 
-RMS.postHoc <-
-  RMS.postHoc$res %>%
-    as_tibble() %>%
-    select(-P.unadj) %>%
-    mutate(Sig = gtools::stars.pval(P.adj),
-           Comp1 = str_split_fixed(.$Comparison, ' - ', 2)[,1],
-           Comp2 = str_split_fixed(.$Comparison, ' - ', 2)[,2],
-           Freq1 = str_split_fixed(Comp1, '\\.', 3)[,1],
-           TimePoint1 = str_split_fixed(Comp1, '\\.', 3)[,2],
-           Condition1 = str_split_fixed(Comp1, '\\.', 3)[,3],
-           Freq2 = str_split_fixed(Comp2, '\\.', 3)[,1],
-           TimePoint2 = str_split_fixed(Comp2, '\\.', 3)[,2],
-           Condition2 = str_split_fixed(Comp2, '\\.', 3)[,3]) %>%
-    select(-Comparison, -Comp1, -Comp2)
-
-
-RMS.postHoc%>%
+RMS.postHoc %>%
     filter(! Sig %in% c(" ", ".")) %>%
     View
 
