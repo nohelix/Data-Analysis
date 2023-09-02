@@ -16,14 +16,14 @@ Group_2 = c(265, 266, 267, 268)
 
 # Temporal Integration Pilot Group - all 3 time points and ABRs pre & post HL
 # in progress
-Group_3 = c(339, 340, 342, 343)
+Group_3 = c(338, 339, 340, 341, 342, 343)
 
 # Get Data ----------------------------------------------------------------
 
 # Get pilot BBN threshold data
 BBN_alone_TH_pilot = 
   TH_table_detail %>%
-  # limit to individuals with baseine & post-HL
+  # limit to individuals with baseline & post-HL
   filter(! rat_name %in% c("Green2", "Orange1")) %>%
   # Remove rat with permanent threshold shifts
   filter(rat_ID != 191 | rat_name != "Green12") %>%
@@ -47,8 +47,8 @@ BBN_alone_Rxn_pilot =
 # All data
 BBN_TempInt_TH = 
   TH_table_detail %>%
-  # limit to individuals with baseine & post-HL
-  filter(! rat_name %in% c("Green2", "Orange1")) %>%
+  # limit to individuals with baseline & post-HL
+  filter(! rat_name %in% c("Green2", "Orange1", "Blue2")) %>%
   # Remove rat with permanent threshold shifts
   filter(rat_ID != 191 | rat_name != "Green12") %>%
   # limit to BBN with no background noise
@@ -74,6 +74,15 @@ BBN_TempInt_Rxn =
                            rat_ID %in% Group_2 ~ "Group 2",
                            rat_ID %in% Group_3 ~ "Group 3",
                            .default = "Unknown") %>% ordered(levels = c("Pilot", "Group 1", "Group 2", "Group 3")))
+
+# Calculate Change in Rxn -------------------------------------------------
+
+BBN_TempInt_Rxn_change =
+  BBN_TempInt_Rxn %>%
+  group_by(rat_ID, rat_name, group, Frequency, Duration, Intensity) %>%
+  do(Rxn = filter(., HL_state == "baseline")$Rxn - filter(., HL_state == "post-HL")$Rxn %>%
+       ifelse(identical(., numeric(0)), NA_integer_, .)) %>% 
+  mutate(Rxn = ifelse(identical(Rxn, numeric(0)), NA_integer_, Rxn))
 
 
 # Export for Ben ----------------------------------------------------------
@@ -196,7 +205,7 @@ BBN_alone_Rxn_pilot %>%
 
 
 BBN_TempInt_Rxn %>%
-  filter(Intensity < 90) %>%
+  filter(Intensity < 90 & Intensity > 19) %>%
   filter(HL_state == "baseline") %>%
   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
            factor(levels = c("4", "8", "16", "32", "BBN")),
@@ -227,4 +236,66 @@ BBN_TempInt_Rxn %>%
   facet_wrap( ~ group, ncol = 2, scales = "fixed") +
   theme(legend.position = c(0.9, 0.8),
         legend.background=element_blank())
+
+BBN_TempInt_Rxn %>%
+  filter(Intensity < 90 & Intensity > 19) %>%
+  filter(HL_state == "post-HL") %>%
+  mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
+           factor(levels = c("4", "8", "16", "32", "BBN")),
+         BG = if_else(BG_type == "None", "None", paste0(BG_type, "\n", BG_Intensity, "dB")),
+         HL_state = factor(HL_state, levels = c("baseline", "HL", "recovery", "post-HL"))) %>%
+  filter(HL_state %in% c("baseline", "post-HL")) %>%
+  ggplot(aes(x = Intensity, y = Rxn, 
+             color = as.factor(Duration), shape = as.factor(Duration),
+             group = interaction(HL_state, as.factor(Duration)))) +
+  stat_summary(fun = mean,
+               fun.min = function(x) mean(x) - FSA::se(x),
+               fun.max = function(x) mean(x) + FSA::se(x),
+               geom = "errorbar", width = 1, position = position_dodge(1)) +
+  stat_summary(fun = mean, geom = "point", position = position_dodge(1), size = 2) +
+  geom_smooth(se = FALSE, na.rm = TRUE, linewidth = 1) +
+  labs(x = "Intensity (dB)",
+       y = "Reaction time (ms, mean +/- SE)",
+       color = "Duration", shape = "Duration",
+       title = "Reaction curves for BBN for temporal integration after Hearing Loss"
+  ) +
+  scale_x_continuous(breaks = seq(-50, 90, by = 10)) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+    panel.grid.minor.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+  ) +
+  facet_wrap( ~ group, ncol = 2, scales = "fixed") +
+  theme(legend.position = c(0.9, 0.8),
+        legend.background=element_blank())
+
+# BBN_TempInt_Rxn_change %>%
+#   filter(Intensity < 90) %>%
+#   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
+#            factor(levels = c("4", "8", "16", "32", "BBN"))) %>%
+#   ggplot(aes(x = Intensity, y = Rxn, 
+#              color = as.factor(Duration), shape = as.factor(Duration),
+#              group = interaction(as.factor(Duration)))) +
+#   stat_summary(fun = mean,
+#                fun.min = function(x) mean(x) - FSA::se(x),
+#                fun.max = function(x) mean(x) + FSA::se(x),
+#                geom = "errorbar", width = 1, position = position_dodge(1)) +
+#   stat_summary(fun = mean, geom = "point", position = position_dodge(1), size = 2) +
+#   geom_smooth(se = FALSE, na.rm = TRUE, linewidth = 1) +
+#   labs(x = "Intensity (dB)",
+#        y = "Change in Reaction time (ms, mean +/- SE)",
+#        color = "Duration", shape = "Duration",
+#        title = "Change in reaction curves for BBN for temporal integration after Hearing Loss"
+#   ) +
+#   scale_x_continuous(breaks = seq(-50, 90, by = 10)) +
+#   theme_classic() +
+#   theme(
+#     plot.title = element_text(hjust = 0.5),
+#     panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+#     panel.grid.minor.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+#   ) +
+#   facet_wrap( ~ group, ncol = 2, scales = "fixed") +
+#   theme(legend.position = c(0.9, 0.8),
+#         legend.background=element_blank())
 
