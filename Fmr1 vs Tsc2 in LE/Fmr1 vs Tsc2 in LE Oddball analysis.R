@@ -36,6 +36,7 @@ oddball_core_data = dataset %>%
                                task == "Uneven odds, 5 most frequent" ~ "Middle Odds",
                                task == "Uneven odds, 6 most frequent" ~ "End Odds",
                                task == "Uneven odds" ~ "End Odds",
+                               task == "Reset" & detail == "Round 2" ~ "Reset 2",
                                task == "Reset" ~ "Reset",
                                task == "Catch trials" ~ "Catch",
                                task == "Base case" & detail == "Round 2" ~ "Base Case 2",
@@ -113,7 +114,7 @@ oddball_reaction_n_table = oddball_reaction %>%
 # 139, 145, 153
 individual_graphs =
   oddball_reaction_by_frequency %>% 
-    filter(challenge %in% c("Standard", "Base Case 2", "Middle Odds", "End Odds", "Background", "Reset", "Catch")) %>%
+    filter(challenge %in% c("Standard", "Base Case 2", "Middle Odds", "End Odds", "Background", "Reset", "Catch", "Reset 2")) %>%
     # filter(rat_name == "RP3") %>%
     group_by(rat_ID, rat_name) %>%
     do(oddball_single_rat_graph = 
@@ -134,7 +135,7 @@ individual_graphs =
       scale_color_manual(values = c("Standard" = "black", "Base Case 2" = "grey30",
                                     "Background" = "tan4", "Catch" = "darkgreen",
                                     "End Odds" = "violetred", "Middle Odds" = "royalblue",
-                                    "Reset" = "goldenrod")) +
+                                    "Reset" = "goldenrod", "Reset 2" = "yellow3")) +
       scale_x_continuous(breaks = seq(2, 6, by = 1)) +
       labs(title = paste0(unique(.$rat_name), " (#", unique(.$rat_ID), ") ", 
                           unique(.$line), " ", unique(.$genotype)),
