@@ -7,7 +7,7 @@ library(readxl); library(tidyverse); library(magrittr); library(dplyr); library(
 library(FSA); library(LambertW)
 
 # Data visualization
-library(ggplot2); library(forcats); library(gtools); library(ggpmisc); library(hrbrthemes)
+library(ggplot2); library(forcats); library(gtools); library(ggpmisc)
 
 
 # Variables ---------------------------------------------------------------
@@ -92,67 +92,189 @@ AOV.data$RMS.Gaus = LambertW::Gaussianize(AOV.data$RMS)[, 1]
 AOV.data$W1.amp.Gaus = LambertW::Gaussianize(AOV.data$W1.amp)[, 1]
 AOV.data$W1.lat.Gaus = LambertW::Gaussianize(AOV.data$W1.lat)[, 1]
 
-
-# TH ----------------------------------------------------------------------
+# TH Calc -----------------------------------------------------------------
 
 # Calculate from lowest Intensity
 Wave1_TH =
   Wave1_data %>%
-    group_by(ID, Timepoint, Freq) %>%
-    do(filter(., Inten == min(Inten))) %>%
-    ungroup() %>%
-    summarise(TH = mean(Inten, na.rm = TRUE),
-              .by = c(ID, Timepoint, Freq))
+  group_by(ID, Timepoint, Freq) %>%
+  do(filter(., Inten == min(Inten))) %>%
+  ungroup() %>%
+  summarise(TH = mean(Inten, na.rm = TRUE),
+            .by = c(ID, Condition, Timepoint, Freq)) %>%
+  mutate(Timepoint = ordered(Timepoint, c("Baseline", "Hearing Loss", "1 day",
+                                          "1 week", "2 week", "4-5 week")))
+
 
 Wave1_TH %>%
   group_by(Freq) %>%
   do(dplyr::filter(., TH == max(TH)))
 
 
-# Graph -------------------------------------------------------------------
+# TH Stats ----------------------------------------------------------------
 
-# RMS, W1 latency (ms), W1 amp (uV)
-Wave1_data  %>%
-  ggplot(aes(x = Timepoint, y = W1.lat, color = Inten, group = Inten)) +
-  geom_smooth(aes(color = 100, group = 100)) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
-               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
-               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
-               geom = "errorbar", width = 0.1) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line") +
-  # scale_x_continuous(limits = c(10, 100), breaks = c(20, 40, 60, 80, 100)) +
-  # labs(x = "Sound Intensity (dB)",
-  # y = "Signal-to-Noise Ratio (RMS)") +
-  facet_wrap( ~ Freq, nrow = 2) +
-  theme_classic() +
-  theme(
-    text = element_text(size = 12),
-    panel.grid.major.x = element_line(color = "white"),
-  )
+TH.aov <- aov(TH ~ Condition * Freq * Timepoint,
+               data = Wave1_TH)
+
+Parametric_Test(TH.aov)
+# summary(RMS.aov)
+
+# Kruskal Testing - very non-normal
+TH.stats <-
+  lapply(c("Freq", "Timepoint", "Condition"),
+         function(x) kruskal.test(reformulate(x, "TH"), data = Wave1_TH)) %>%
+  # Convert to table
+  do.call(rbind, .) %>% as_tibble() %>% mutate_all(unlist) %>%
+  # do a p adjustment and then sig label
+  mutate(adj.p.value = p.adjust(p.value, "bonf"),
+         sig = gtools::stars.pval(adj.p.value))
+
+TH.stats
+
+TH.postHoc =
+  Wave1_TH %>%
+  group_by(Freq) %>%
+  do(
+    FSA::dunnTest(TH ~ interaction(Timepoint, Condition),
+                  data = .,
+                  method = "none") %>% print()
+  ) %>% dplyr::select(-P.adj) %>%
+  mutate(P.adj = p.adjust(P.unadj, "bonf"),
+         Sig = gtools::stars.pval(P.adj),
+         TimePoint1 = str_extract(Comparison, pattern = '^.+?(?=\\.)') %>%
+                          ordered(c("Baseline", "Hearing Loss", "1 day",
+                                    "1 week", "2 week", "4-5 week")),
+         Condition1 = str_extract(Comparison, pattern = '(?<=\\.).+?(?= -)'),
+         TimePoint2 = str_extract(Comparison, pattern = '(?<= - ).+?(?=\\.)') %>%
+                         ordered(c("Baseline", "Hearing Loss", "1 day",
+                                   "1 week", "2 week", "4-5 week")),
+         Condition2 = str_extract(Comparison, pattern = '(?<= - ).+?$') %>% str_extract(., pattern = '(?<=\\.).+?$')) %>%
+  dplyr::select(Freq, TimePoint1, TimePoint2, Condition1, Condition2, Z, P.adj, Sig)
+
+TH.postHoc %>%
+  filter(! Sig %in% c(" ", "."))
 
 
-Wave1_data %>%
-  filter(Inten == "80" & Freq %in% c("BBN")) %>%
-  gather(key = "ABR", value = "value", RMS, W1.lat, W1.amp) %>%
-  ggplot(aes(x = Timepoint, y = value, group = Condition, color = Condition)) +
+# TH Graphs ---------------------------------------------------------------
+
+TH.annotation =
+  TH.postHoc %>%
+  ungroup %>%
+  filter(! Sig %in% c(" ", ".")) %>%
+  mutate(Timepoint_start = case_when(TimePoint1 < TimePoint2 ~ TimePoint1,
+                                     TimePoint2 < TimePoint1 ~ TimePoint2,
+                                     .default = NA),
+         Timepoint_end = case_when(TimePoint1 < TimePoint2 ~ TimePoint2,
+                                   TimePoint2 < TimePoint1 ~ TimePoint1,
+                                   .default = NA),
+         x = (as.numeric(Timepoint_start) + as.numeric(Timepoint_end))/2,
+         Condition = Condition1
+  ) %>%
+  left_join(Wave1_TH %>%
+              group_by(Freq) %>%
+              filter(Timepoint == "Hearing Loss") %>%
+              do(dplyr::filter(., TH == max(TH))) %>%
+              dplyr::select(Freq, TH),
+            relationship = "many-to-many",
+            by = c("Freq" = "Freq")) %>%
+  mutate(Condition = if_else(Condition == "Sham", "Sham", "11-13kHz\nNoise Exposure")) %>%
+  unique
+
+
+Wave1_TH %>%
+  filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  mutate(Condition = if_else(Condition == "Sham", "Sham", "11-13kHz\nNoise Exposure")) %>%
+  ggplot(aes(x = Timepoint, y = TH, group = Condition, color = Condition)) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE),
                fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
                fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
                geom = "errorbar", width = 0.1) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1.2) +
+  # add lines for significance
+  geom_segment(data = TH.annotation %>% filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")),
+               aes(x = Timepoint_start, xend = Timepoint_end, y = TH - 5, yend = TH - 5),
+               position = position_jitter(height = 5, width = 0),
+               show.legend = FALSE) +
+  # add significance stars
+  geom_text(data = TH.annotation %>% filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")),
+             aes(label = Sig, x = x, y = TH), size = 7, color = "black",
+             show.legend = FALSE) +
+  labs(color = "Treatment",
+       x = "", y = "Threshold (+/- SE)",
+       caption = "Significant threshold shifts only between TTS timepoints") +
+  facet_wrap( ~ Freq, scale = "fixed", ncol = 2) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 12),
+    panel.grid.major.x = element_line(color = "white"),
+    legend.position = c(0.8, 0.1),
+    legend.background=element_blank()
+  )
+
+ggsave(filename = "TH_shifts.jpg",
+       path = ProjectFolder,
+       plot = last_plot(),
+       width = 10, height = 10, units = "in", dpi = 300)
+
+
+# Overall Graph -----------------------------------------------------------
+
+# BBN
+# RMS, W1 latency (ms), W1 amp (uV)
+Wave1_data %>%
+  filter(Inten == "80" & Freq %in% c("BBN")) %>%
+  rename(`W1 amp (uV)` = W1.amp,
+         `W1 latency (ms)` = W1.lat) %>%
+  mutate(Condition = if_else(Condition == "Sham", "Sham", "11-13kHz\nNoise Exposure")) %>%
+  gather(key = "ABR", value = "value", RMS, `W1 amp (uV)`, `W1 latency (ms)`) %>%
+  ggplot(aes(x = Timepoint, y = value, group = Condition, color = Condition)) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+               geom = "errorbar", width = 0.1) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 2) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1) +
   labs(title = "80dB Intensity Only for Broadband",
-       color = "Treatment") +
+       color = "Treatment",
+       y = "") +
   facet_wrap( ~ ABR, scale = "free", nrow = 3) +
-  # theme_classic() +
-  theme_ipsum_es() +
+  theme_bw() +
   theme(
     text = element_text(size = 12),
     panel.grid.major.x = element_line(color = "white"),
   )
 
-ggsave(filename = "ABR_80dB.jpg",
+ggsave(filename = "ABR_BBN_80dB.jpg",
+       path = ProjectFolder,
+       plot = last_plot(),
+       width = 8, height = 6, units = "in", dpi = 300)
+
+# 16 kHz
+Wave1_data %>%
+  filter(Inten == "80" & Freq %in% c("16 kHz")) %>%
+  rename(`W1 amp (uV)` = W1.amp,
+         `W1 latency (ms)` = W1.lat) %>%
+  mutate(Condition = if_else(Condition == "Sham", "Sham", "11-13kHz\nNoise Exposure")) %>%
+  gather(key = "ABR", value = "value", RMS, `W1 amp (uV)`, `W1 latency (ms)`) %>%
+  ggplot(aes(x = Timepoint, y = value, group = Condition, color = Condition)) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+               geom = "errorbar", width = 0.1) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 2) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1) +
+  labs(title = "80dB Intensity Only for 16 kHz tone",
+       color = "Treatment",
+       y = "") +
+  facet_wrap( ~ ABR, scale = "free", nrow = 3) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 12),
+    panel.grid.major.x = element_line(color = "white"),
+  )
+
+ggsave(filename = "ABR_16kHz_80dB.jpg",
        path = ProjectFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
@@ -198,9 +320,9 @@ RMS.postHoc %>%
     View
 
 
-# Graph -------------------------------------------------------------------
+# RMS Graph ---------------------------------------------------------------
 
-# RMS, W1 latency (ms), W1 amp (uV)
+# All Frequencies
 Wave1_data  %>%
   filter(Condition == "TTS") %>%
   ggplot(aes(x = Timepoint, y = RMS, color = Inten, group = Inten)) +
@@ -216,32 +338,39 @@ Wave1_data  %>%
   # y = "Signal-to-Noise Ratio (RMS)") +
   facet_wrap( ~ Freq, nrow = 2) +
   labs(title = "") +
-  theme_classic() +
+  theme_bw() +
   theme(
     text = element_text(size = 12),
     panel.grid.major.x = element_line(color = "white"),
   )
 
-Wave1_data %>%
-  filter(Inten == "80") %>%
-  gather(key = "ABR", value = "value", RMS, `W1 latency (ms)`, `W1 amp (uV)`)%>%
-  ggplot(aes(x = Timepoint, y = value, group = Condition, color = Condition)) +
+# Input-Output functions
+Wave1_data  %>%
+  filter(Condition == "TTS") %>%
+  filter(Timepoint %in% c("Baseline", "Hearing Loss", "1 day", "2 week", "4-5 week")) %>%
+  filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  ggplot(aes(x = Inten, y = RMS, color = Timepoint, group = Timepoint)) +
+  geom_smooth(se = FALSE) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE),
                fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
                fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
                geom = "errorbar", width = 0.1) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1.2) +
-  labs(title = "80dB Intensity Only for all Frequencies") +
-  facet_wrap( ~ ABR, scale = "free", nrow = 3) +
-  # theme_classic() +
-  theme_ipsum_es() +
+  scale_x_continuous(n.breaks = 10) +
+  labs(Title = "Input-Output for Wave 1 Amplitude",
+       x = "Sound Intensity (dB)",
+       y = "Signal to Noise (RMS)") +
+  facet_wrap( ~ Freq, scales = "free_x", ncol = 2) +
+  theme_bw() +
   theme(
     text = element_text(size = 12),
-    panel.grid.major.x = element_line(color = "white"),
+    panel.grid.minor = element_blank(),
+    # axis.title.x = element_text(hjust = 0.45),
+    legend.position = c(0.8, 0.1),
+    legend.background=element_blank()
   )
 
-ggsave(filename = "ABR_80dB.jpg",
+ggsave(filename = "ABR_RMS_IO.jpg",
        path = ProjectFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
@@ -259,81 +388,138 @@ Parametric_Test(W1.amp.aov)
 W1.amp.stats <-
   lapply(c("Freq", "Inten", "Timepoint", "Condition"),
          function(x) kruskal.test(reformulate(x, "W1.amp"), data = AOV.data)) %>%
-    # Convert to table
-    do.call(rbind, .) %>% as_tibble() %>% mutate_all(unlist) %>%
-    # do a p adjustment and then sig label
-    mutate(adj.p.value = p.adjust(p.value, "BH"),
-           sig = gtools::stars.pval(adj.p.value))
+  # Convert to table
+  do.call(rbind, .) %>% as_tibble() %>% mutate_all(unlist) %>%
+  # do a p adjustment and then sig label
+  mutate(adj.p.value = p.adjust(p.value, "bonf"),
+         sig = gtools::stars.pval(adj.p.value))
 
-W1.amp.postHoc <-
-  FSA::dunnTest(W1.amp ~ interaction(Freq, Timepoint, Condition),
-                data = AOV.data,
-                method = "bonf")
+W1.amp.stats
 
-# print(postHoc, dunn.test.results = TRUE)
-
-W1.amp.postHoc <-
-  W1.amp.postHoc$res %>%
-  as_tibble() %>%
-  select(-P.unadj) %>%
-  mutate(Sig = gtools::stars.pval(P.adj),
-         Comp1 = str_split_fixed(.$Comparison, ' - ', 2)[,1],
-         Comp2 = str_split_fixed(.$Comparison, ' - ', 2)[,2],
-         Freq1 = str_split_fixed(Comp1, '\\.', 3)[,1],
-         TimePoint1 = str_split_fixed(Comp1, '\\.', 3)[,2],
-         Condition1 = str_split_fixed(Comp1, '\\.', 3)[,3],
-         Freq2 = str_split_fixed(Comp2, '\\.', 3)[,1],
-         TimePoint2 = str_split_fixed(Comp2, '\\.', 3)[,2],
-         Condition2 = str_split_fixed(Comp2, '\\.', 3)[,3]) %>%
-  select(-Comparison, -Comp1, -Comp2)
-
+W1.amp.postHoc =
+  AOV.data %>%
+  group_by(Freq) %>%
+  do(
+    FSA::dunnTest(W1.amp ~ interaction(Timepoint, Condition),
+                  data = .,
+                  method = "none") %>% print()
+  ) %>% dplyr::select(-P.adj) %>%
+  mutate(P.adj = p.adjust(P.unadj, "bonf"),
+         Sig = gtools::stars.pval(P.adj),
+         TimePoint1 = str_extract(Comparison, pattern = '^.+?(?=\\.)'),
+         Condition1 = str_extract(Comparison, pattern = '(?<=\\.).+?(?= -)'),
+         TimePoint2 = str_extract(Comparison, pattern = '(?<= - ).+?(?=\\.)'),
+         Condition2 = str_extract(Comparison, pattern = '(?<= - ).+?$') %>% str_extract(., pattern = '(?<=\\.).+?$')) %>%
+  dplyr::select(Freq, TimePoint1, TimePoint2, Condition1, Condition2, Z, P.adj, Sig)
 
 W1.amp.postHoc %>%
   filter(! Sig %in% c(" ", ".")) %>%
   View
 
-# W1 Graph -------------------------------------------------------------------
 
-# RMS, W1 latency (ms), W1 amp (uV)
+# W1 Amp Graph ------------------------------------------------------------
+
+# Input-Output functions
 Wave1_data  %>%
-  ggplot(aes(x = Timepoint, y = `W1 latency (ms)`, color = Inten, group = Inten)) +
-  geom_smooth(aes(color = 100, group = 100)) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
-               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
-               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
-               geom = "errorbar", width = 0.1) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line") +
-  # scale_x_continuous(limits = c(10, 100), breaks = c(20, 40, 60, 80, 100)) +
-  # labs(x = "Sound Intensity (dB)",
-  # y = "Signal-to-Noise Ratio (RMS)") +
-  facet_wrap( ~ Freq, nrow = 2) +
-  theme_classic() +
-  theme(
-    text = element_text(size = 12),
-    panel.grid.major.x = element_line(color = "white"),
-  )
+  filter(Condition == "TTS") %>%
+  filter(Timepoint %in% c("Baseline", "Hearing Loss", "1 day", "2 week", "4-5 week")) %>%
+  filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  ggplot(aes(x = Inten, y = W1.amp, color = Timepoint, group = Timepoint)) +
+    geom_smooth(se = FALSE) +
+    stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+                 fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+                 fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+                 geom = "errorbar", width = 0.1) +
+    stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
+    scale_x_continuous(n.breaks = 10) +
+    labs(Title = "Input-Output for Wave 1 Amplitude",
+         x = "Sound Intensity (dB)",
+         y = "Amplitude (uV)") +
+    facet_wrap( ~ Freq, scales = "free_x", ncol = 2) +
+    theme_bw() +
+    theme(
+      text = element_text(size = 12),
+      panel.grid.minor = element_blank(),
+      # axis.title.x = element_text(hjust = 0.45),
+      legend.position = c(0.8, 0.1),
+      legend.background=element_blank()
+    )
 
-Wave1_data %>%
-  filter(Inten == "80") %>%
-  gather(key = "ABR", value = "value", RMS, `W1 latency (ms)`, `W1 amp (uV)`)%>%
-  ggplot(aes(x = Timepoint, y = value, group = Condition, color = Condition)) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
-               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
-               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
-               geom = "errorbar", width = 0.1) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
-  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1.2) +
-  labs(title = "80dB Intensity Only for all Frequencies") +
-  facet_wrap( ~ ABR, scale = "free", nrow = 3) +
-  # theme_classic() +
-  theme_ipsum_es() +
-  theme(
-    text = element_text(size = 12),
-    panel.grid.major.x = element_line(color = "white"),
-  )
-
-ggsave(filename = "ABR_BBN_80dB.jpg",
+ggsave(filename = "ABR_W1 amp_IO.jpg",
        path = ProjectFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
+
+# W1 lat ANOVA ----------------------------------------------------------------
+
+W1.lat.aov <- aov(W1.lat.Gaus ~ Condition * Freq * Inten * Timepoint,
+                  data = AOV.data)
+
+Parametric_Test(W1.lat.aov)
+# summary(RMS.aov)
+
+# Kruskal Testing - very non-normal
+W1.lat.stats <-
+  lapply(c("Freq", "Inten", "Timepoint", "Condition"),
+         function(x) kruskal.test(reformulate(x, "W1.lat"), data = AOV.data)) %>%
+  # Convert to table
+  do.call(rbind, .) %>% as_tibble() %>% mutate_all(unlist) %>%
+  # do a p adjustment and then sig label
+  mutate(adj.p.value = p.adjust(p.value, "bonf"),
+         sig = gtools::stars.pval(adj.p.value))
+
+W1.lat.stats
+
+W1.lat.postHoc =
+  AOV.data %>%
+  group_by(Freq) %>%
+  do(
+    FSA::dunnTest(W1.lat ~ interaction(Timepoint, Condition),
+                  data = .,
+                  method = "none") %>% print()
+  ) %>% dplyr::select(-P.adj) %>%
+  mutate(P.adj = p.adjust(P.unadj, "bonf"),
+         Sig = gtools::stars.pval(P.adj),
+         TimePoint1 = str_extract(Comparison, pattern = '^.+?(?=\\.)'),
+         Condition1 = str_extract(Comparison, pattern = '(?<=\\.).+?(?= -)'),
+         TimePoint2 = str_extract(Comparison, pattern = '(?<= - ).+?(?=\\.)'),
+         Condition2 = str_extract(Comparison, pattern = '(?<= - ).+?$') %>% str_extract(., pattern = '(?<=\\.).+?$')) %>%
+  dplyr::select(Freq, TimePoint1, TimePoint2, Condition1, Condition2, Z, P.adj, Sig)
+
+W1.lat.postHoc %>%
+  filter(! Sig %in% c(" ", ".")) %>%
+  View
+
+# W1 lat Graph --------------------------------------------------------------
+
+# Input-Output functions
+Wave1_data  %>%
+  filter(Condition == "TTS") %>%
+  filter(Timepoint %in% c("Baseline", "Hearing Loss", "1 day", "2 week", "4-5 week")) %>%
+  filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  ggplot(aes(x = Inten, y = W1.lat, color = Timepoint, group = Timepoint)) +
+  geom_smooth(se = FALSE) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+               geom = "errorbar", width = 0.1) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
+  scale_x_continuous(n.breaks = 10) +
+  labs(Title = "Input-Output for Wave 1 Latency",
+       x = "Sound Intensity (dB)",
+       y = "Latency (ms)") +
+  facet_wrap( ~ Freq, scales = "free_x", ncol = 2) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 12),
+    panel.grid.minor = element_blank(),
+    # axis.title.x = element_text(hjust = 0.45),
+    legend.position = c(0.8, 0.1),
+    legend.background=element_blank()
+  )
+
+ggsave(filename = "ABR_W1 lat_IO.jpg",
+       path = ProjectFolder,
+       plot = last_plot(),
+       width = 8, height = 6, units = "in", dpi = 300)
+
