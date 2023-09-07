@@ -238,7 +238,7 @@ Wave1_data %>%
   labs(title = "80dB Intensity Only for Broadband",
        color = "Treatment",
        y = "") +
-  facet_wrap( ~ ABR, scale = "free", nrow = 3) +
+  facet_wrap( ~ ABR, scales = "free", nrow = 3) +
   theme_bw() +
   theme(
     text = element_text(size = 12),
@@ -376,6 +376,35 @@ ggsave(filename = "ABR_RMS_IO.jpg",
        width = 8, height = 6, units = "in", dpi = 300)
 
 
+# W1 Change data ----------------------------------------------------------
+
+Wave1_final_change =
+  Wave1_data %>%
+    group_by(ID, Condition, Freq, Inten) %>%
+    do(
+      # Average 2 & 5 week time points
+      RMS_avg_change = mean(filter(., Timepoint %in% c("2 week", "4-5 week"))$RMS) -
+        filter(., Timepoint == "Baseline")$RMS,
+      W1.amp.avg_change = mean(filter(., Timepoint %in% c("2 week", "4-5 week"))$W1.amp) -
+        filter(., Timepoint == "Baseline")$W1.amp,
+      W1.lat.avg_change = mean(filter(., Timepoint %in% c("2 week", "4-5 week"))$W1.lat) -
+        filter(., Timepoint == "Baseline")$W1.lat,
+      # only use the final time point
+      RMS_final_change = filter(., Timepoint == "4-5 week")$RMS - filter(., Timepoint == "Baseline")$RMS,
+      W1.amp.final_change = filter(., Timepoint == "4-5 week")$W1.amp - filter(., Timepoint == "Baseline")$W1.amp,
+      W1.lat.final_change = filter(., Timepoint == "4-5 week")$W1.lat - filter(., Timepoint == "Baseline")$W1.lat
+    ) %>%
+    ungroup() %>%
+    mutate(Freq = ordered(Freq, c("4 kHz", "6 kHz", "8 kHz", "12 kHz", "16 kHz",
+                       "24 kHz", "32 kHz", "48 kHz", "BBN")),
+           RMS_avg_change = as.numeric(RMS_avg_change),
+           W1.amp.avg_change = as.numeric(W1.amp.avg_change),
+           W1.lat.avg_change = as.numeric(W1.lat.avg_change),
+           RMS_final_change = as.numeric(RMS_final_change),
+           W1.amp.final_change = as.numeric(W1.amp.final_change),
+           W1.lat.final_change = as.numeric(W1.lat.final_change))
+
+
 # W1 amp ANOVA ----------------------------------------------------------------
 
 W1.amp.aov <- aov(W1.amp.Gaus ~ Condition * Freq * Inten * Timepoint,
@@ -434,7 +463,7 @@ Wave1_data  %>%
     scale_x_continuous(n.breaks = 10) +
     labs(Title = "Input-Output for Wave 1 Amplitude",
          x = "Sound Intensity (dB)",
-         y = "Amplitude (uV)") +
+         y = "Amplitude (\u03BCV)") +
     facet_wrap( ~ Freq, scales = "free_x", ncol = 2) +
     theme_bw() +
     theme(
@@ -449,6 +478,39 @@ ggsave(filename = "ABR_W1 amp_IO.jpg",
        path = ProjectFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
+
+Wave1_final_change  %>%
+  filter(Condition == "TTS") %>%
+  # filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  ggplot(aes(x = Inten, y = W1.amp.avg_change, color = Freq, group = Freq)) +
+  geom_smooth(se = FALSE) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+               geom = "errorbar", width = 0.1,
+               position = position_dodge(0.3)) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3,
+               position = position_dodge(0.3)) +
+  # stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line",
+  #              position = position_dodge(0.3)) +
+  scale_x_continuous(n.breaks = 10) +
+  labs(title = "Permanent change in Wave 1 Amplitute",
+       x = "Sound Intensity (dB)",
+       y = "Amplitude (\u03BCV)",
+       color = "Frequency") +
+  theme_bw() +
+  theme(
+    text = element_text(size = 12),
+    panel.grid.minor = element_blank(),
+    # axis.title.x = element_text(hjust = 0.45),
+    legend.position = c(0.15, 0.25),
+    # legend.background=element_blank()
+  )
+
+ggsave(filename = "ABR_W1 amp_change.jpg",
+       path = ProjectFolder,
+       plot = last_plot(),
+       width = 9, height = 6, units = "in", dpi = 300)
 
 # W1 lat ANOVA ----------------------------------------------------------------
 
@@ -522,4 +584,37 @@ ggsave(filename = "ABR_W1 lat_IO.jpg",
        path = ProjectFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
+
+Wave1_final_change  %>%
+  filter(Condition == "TTS") %>%
+  filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  ggplot(aes(x = Inten, y = W1.lat.avg_change, color = Freq, group = Freq)) +
+  geom_smooth(se = FALSE) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+               geom = "errorbar", width = 0.1,
+               position = position_dodge(0.3)) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3,
+               position = position_dodge(0.3)) +
+  # stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line",
+  #              position = position_dodge(0.3)) +
+  scale_x_continuous(n.breaks = 10) +
+  labs(title = "No permanent change in Wave 1 Latency",
+       x = "Sound Intensity (dB)",
+       y = "Latency (ms)",
+       color = "Frequency") +
+  theme_bw() +
+  theme(
+    text = element_text(size = 12),
+    panel.grid.minor = element_blank(),
+    # axis.title.x = element_text(hjust = 0.45),
+    legend.position = c(0.9, 0.8),
+    # legend.background=element_blank()
+  )
+
+ggsave(filename = "ABR_W1 lat_change.jpg",
+       path = ProjectFolder,
+       plot = last_plot(),
+       width = 9, height = 6, units = "in", dpi = 300)
 
