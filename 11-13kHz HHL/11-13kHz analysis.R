@@ -9,9 +9,14 @@ library(FSA); library(LambertW)
 # Data visualization
 library(ggplot2); library(forcats); library(gtools); library(ggpmisc)
 
+# Data Export
+library(data.table)
+
 
 # Variables ---------------------------------------------------------------
 ProjectFolder = "C:/Users/Noelle/Box/ABR recordings/ABR Results/11-13kHz HHL"
+
+SaveFolder = "C:/Users/Noelle/Box/Behavior Lab/Shared/Noelle/Paper Drafts/2023 11-13kHz noise expsure"
 
 Shams = c("244", "247")
 
@@ -200,7 +205,7 @@ Wave1_TH %>%
   )
 
 ggsave(filename = "TH_shifts.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 10, height = 10, units = "in", dpi = 300)
 
@@ -233,7 +238,7 @@ Wave1_data %>%
   )
 
 ggsave(filename = "ABR_BBN_80dB.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
 
@@ -262,7 +267,7 @@ Wave1_data %>%
   )
 
 ggsave(filename = "ABR_16kHz_80dB.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
 
@@ -358,7 +363,7 @@ Wave1_data  %>%
   )
 
 ggsave(filename = "ABR_RMS_IO.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
 
@@ -516,13 +521,13 @@ Wave1_data  %>%
     )
 
 ggsave(filename = "ABR_W1 amp_IO.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
 
 Wave1_final_change  %>%
   filter(Condition == "TTS") %>%
-  # filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
   ggplot(aes(x = Inten, y = W1.amp.avg_change, color = Freq, group = Freq)) +
   geom_smooth(se = FALSE) +
   stat_summary(fun = function(x) mean(x, na.rm = TRUE),
@@ -549,7 +554,7 @@ Wave1_final_change  %>%
   )
 
 ggsave(filename = "ABR_W1 amp_change.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 9, height = 6, units = "in", dpi = 300)
 
@@ -565,7 +570,7 @@ Wave1_percent_change %>%
          Freq = str_remove(Freq, " kHz") %>% as.numeric(),
          Timepoint = if_else(ID %in% Shams & Timepoint == "4-5 week", "Sham", Timepoint) %>%
             ordered(c("Sham", "Hearing Loss", "1 day", "1 week", "2 week", "4-5 week")),
-         Condition = if_else(ID %in% Shams & Timepoint == "Sham", "TTS", Condition),
+         # Condition = if_else(ID %in% Shams & Timepoint == "Sham", "TTS", Condition),
          ) %>%
   filter(Condition == "TTS") %>%
   filter(Timepoint %in% c("Baseline", "Hearing Loss", "1 day", "2 week", "4-5 week", "Sham")) %>%
@@ -582,17 +587,17 @@ Wave1_percent_change %>%
                  fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
                  fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
                  geom = "errorbar", width = 0.1,
-                 position = position_dodge(0.3)) +
+                 position = position_dodge(0.1)) +
     stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3,
-                 position = position_dodge(0.3)) +
+                 position = position_dodge(0.1)) +
     stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1,
-                 position = position_dodge(0.3)) +
-    scale_x_continuous(breaks = c(4, 6, 8, 12, 16, 24, 32, 48)) +
+                 position = position_dodge(0.1)) +
+    scale_x_continuous(breaks = c(4, 6, 8, 12, 16, 24, 32, 48), trans = 'log2') +
     labs(title = "Change in Wave 1 Amplitute from Baseline following noise exposure",
          x = "Frequency (kHz)",
          y = "% change from Baseline",
          color = "Timepoint") +
-    facet_wrap( ~ Inten, scales = "fixed", nrow = 3) +
+    facet_wrap( ~ Inten, scales = "free", nrow = 3) +
     theme_bw() +
     theme(
       text = element_text(size = 12),
@@ -603,7 +608,7 @@ Wave1_percent_change %>%
     )
 
 ggsave(filename = "ABR_W1 amp_percent change.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 8, height = 9, units = "in", dpi = 300)
 
@@ -676,7 +681,7 @@ Wave1_data  %>%
   )
 
 ggsave(filename = "ABR_W1 lat_IO.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
 
@@ -709,7 +714,7 @@ Wave1_final_change  %>%
   )
 
 ggsave(filename = "ABR_W1 lat_change.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 9, height = 6, units = "in", dpi = 300)
 
@@ -725,7 +730,7 @@ Wave1_percent_change %>%
          Freq = str_remove(Freq, " kHz") %>% as.numeric(),
          Timepoint = if_else(ID %in% Shams & Timepoint == "4-5 week", "Sham", Timepoint) %>%
            ordered(c("Sham", "Hearing Loss", "1 day", "1 week", "2 week", "4-5 week")),
-         Condition = if_else(ID %in% Shams & Timepoint == "Sham", "TTS", Condition),
+         # Condition = if_else(ID %in% Shams & Timepoint == "Sham", "TTS", Condition),
   ) %>%
   filter(Condition == "TTS") %>%
   filter(Timepoint %in% c("Baseline", "Hearing Loss", "1 day", "2 week", "4-5 week", "Sham")) %>%
@@ -747,7 +752,7 @@ Wave1_percent_change %>%
                  position = position_dodge(0.3)) +
     stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1,
                  position = position_dodge(0.3)) +
-    scale_x_continuous(breaks = c(4, 6, 8, 12, 16, 24, 32, 48)) +
+    scale_x_continuous(breaks = c(4, 6, 8, 12, 16, 24, 32, 48), trans = 'log2') +
     labs(title = "Change in Wave 1 Latency from Baseline following noise exposure",
          x = "Frequency (kHz)",
          y = "% change from Baseline",
@@ -763,6 +768,14 @@ Wave1_percent_change %>%
     )
 
 ggsave(filename = "ABR_W1 latency_percent change.jpg",
-       path = ProjectFolder,
+       path = SaveFolder,
        plot = last_plot(),
        width = 8, height = 9, units = "in", dpi = 300)
+
+
+# Export Data -------------------------------------------------------------
+
+fwrite(Wave1_data, file = glue("{SaveFolder}/Wave1_data.csv"), row.names = FALSE)
+fwrite(Wave1_TH, file = glue("{SaveFolder}/Wave1_threshold_data.csv"), row.names = FALSE)
+fwrite(Wave1_final_change, file = glue("{SaveFolder}/Wave1_permenant_change_data.csv"), row.names = FALSE)
+fwrite(Wave1_percent_change, file = glue("{SaveFolder}/Wave1_percent_change_data.csv"), row.names = FALSE)
