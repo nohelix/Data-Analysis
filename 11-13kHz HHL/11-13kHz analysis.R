@@ -72,14 +72,7 @@ Wave1_data %>%
 
 # Anova data prep
 AOV.data =
-  Wave1_data %>%
-  # filter(Condition == "TTS") %>%
-# Normalize to Baseline -
-# TODO: check if baseline exists and discard if it doesn't?
-  group_by(ID, Freq, Inten, Condition) %>%
-  do(mutate(., RMS.normal = RMS/filter(., Timepoint == "Baseline")$RMS,
-            W1.amp.normal = W1.amp/filter(., Timepoint == "Baseline")$W1.amp,
-            W1.lat.normal = W1.lat/filter(., Timepoint == "Baseline")$W1.lat) %>% print)
+  Wave1_data
 
 # Attempt to transform to normal
 AOV.data$RMS.Gaus = LambertW::Gaussianize(AOV.data$RMS)[, 1]
