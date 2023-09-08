@@ -367,6 +367,37 @@ ggsave(filename = "ABR_RMS_IO.jpg",
        plot = last_plot(),
        width = 8, height = 6, units = "in", dpi = 300)
 
+# Input-Output functions
+Wave1_data  %>%
+  filter(Condition == "TTS") %>%
+  filter(Timepoint %in% c("Baseline", "Hearing Loss", "4-5 week")) %>%
+  # filter(Freq %in% c("4 kHz", "8 kHz", "16 kHz", "32 kHz", "BBN")) %>%
+  ggplot(aes(x = Inten, y = RMS, color = Timepoint, group = Timepoint)) +
+  geom_smooth(se = FALSE) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+               fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+               fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+               geom = "errorbar", width = 0.1) +
+  stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3) +
+  scale_x_continuous(n.breaks = 10) +
+  labs(Title = "Input-Output for Wave 1 Amplitude",
+       x = "Sound Intensity (dB)",
+       y = "Signal to Noise (RMS)") +
+  facet_wrap( ~ Freq, scales = "free_x", nrow = 2) +
+  theme_classic() +
+  theme(
+    text = element_text(size = 12),
+    panel.grid.minor = element_blank(),
+    # axis.title.x = element_text(hjust = 0.45),
+    legend.position = c(0.9, 0.2),
+    legend.background=element_blank()
+  )
+
+ggsave(filename = "ABR_RMS_IO_complete.jpg",
+       path = SaveFolder,
+       plot = last_plot(),
+       width = 12, height = 6, units = "in", dpi = 300)
+
 
 # W1 Change data ----------------------------------------------------------
 
