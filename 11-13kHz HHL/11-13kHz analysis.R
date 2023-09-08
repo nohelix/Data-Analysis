@@ -24,12 +24,6 @@ Graph = read_excel(glue("{ProjectFolder}/Summary.xlsx"),
 Graph_detailed = read_excel(glue("{ProjectFolder}/Summary.xlsx"),
                             sheet = "4-48kHz", na = "NA")
 
-ABR.TH_short = read_excel(glue("{ProjectFolder}/Summary.xlsx"),
-                           sheet = "4-32_Thresholds", na = "NA")
-
-ABR.TH_Detailed = read_excel(glue("{ProjectFolder}/Summary.xlsx"),
-                              sheet = "4-48_Thresholds", na = "NA")
-
 
 # Functions ---------------------------------------------------------------
 
