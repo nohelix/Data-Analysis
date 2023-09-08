@@ -74,8 +74,8 @@ Wave1_data %>%
 AOV.data =
   Wave1_data %>%
   # filter(Condition == "TTS") %>%
-  # Normalize to Baseline -
-  # TODO: check if baseline exists and discard if it doesn't?
+# Normalize to Baseline -
+# TODO: check if baseline exists and discard if it doesn't?
   group_by(ID, Freq, Inten, Condition) %>%
   do(mutate(., RMS.normal = RMS/filter(., Timepoint == "Baseline")$RMS,
             W1.amp.normal = W1.amp/filter(., Timepoint == "Baseline")$W1.amp,
@@ -372,6 +372,60 @@ ggsave(filename = "ABR_RMS_IO.jpg",
 
 # W1 Change data ----------------------------------------------------------
 
+# Percent (%) change from baseline
+Wave1_percent_change =
+  Wave1_data %>%
+  group_by(ID, Condition, Freq, Inten) %>%
+  # Timepoints = c("Baseline", "Hearing Loss", "1 day", "1 week", "2 week", "4-5 week")
+  do(
+    # Hearing Loss
+    RMS_HL = filter(., Timepoint == "Hearing Loss")$RMS / filter(., Timepoint == "Baseline")$RMS,
+    W1.amp_HL = filter(., Timepoint == "Hearing Loss")$W1.amp / filter(., Timepoint == "Baseline")$W1.amp,
+    W1.lat_HL = filter(., Timepoint == "Hearing Loss")$W1.lat / filter(., Timepoint == "Baseline")$W1.lat,
+    # 1 day
+    RMS_1d = filter(., Timepoint == "1 day")$RMS / filter(., Timepoint == "Baseline")$RMS,
+    W1.amp_1d = filter(., Timepoint == "1 day")$W1.amp / filter(., Timepoint == "Baseline")$W1.amp,
+    W1.lat_1d = filter(., Timepoint == "1 day")$W1.lat / filter(., Timepoint == "Baseline")$W1.lat,
+    # 1 week
+    RMS_1w = filter(., Timepoint == "1 week")$RMS / filter(., Timepoint == "Baseline")$RMS,
+    W1.amp_1w = filter(., Timepoint == "1 week")$W1.amp / filter(., Timepoint == "Baseline")$W1.amp,
+    W1.lat_1w = filter(., Timepoint == "1 week")$W1.lat / filter(., Timepoint == "Baseline")$W1.lat,
+    # 2 weeks
+    RMS_2w = filter(., Timepoint == "2 week")$RMS / filter(., Timepoint == "Baseline")$RMS,
+    W1.amp_2w = filter(., Timepoint == "2 week")$W1.amp / filter(., Timepoint == "Baseline")$W1.amp,
+    W1.lat_2w = filter(., Timepoint == "2 week")$W1.lat / filter(., Timepoint == "Baseline")$W1.lat,
+    # 4-5 weeks
+    RMS_5w = filter(., Timepoint == "4-5 week")$RMS / filter(., Timepoint == "Baseline")$RMS,
+    W1.amp_5w = filter(., Timepoint == "4-5 week")$W1.amp / filter(., Timepoint == "Baseline")$W1.amp,
+    W1.lat_5w = filter(., Timepoint == "4-5 week")$W1.lat / filter(., Timepoint == "Baseline")$W1.lat,
+  ) %>%
+  ungroup() %>%
+  mutate(Freq = ordered(Freq, c("4 kHz", "6 kHz", "8 kHz", "12 kHz", "16 kHz",
+                                "24 kHz", "32 kHz", "48 kHz", "BBN")),
+         # Hearing Loss
+         RMS_HL = as.numeric(RMS_HL) * 100,
+         W1.amp_HL = as.numeric(W1.amp_HL) * 100,
+         W1.lat_HL = as.numeric(W1.lat_HL) * 100,
+         # 1 day
+         RMS_1d = as.numeric(RMS_1d) * 100,
+         W1.amp_1d = as.numeric(W1.amp_1d) * 100,
+         W1.lat_1d = as.numeric(W1.lat_1d) * 100,
+         # 1 week
+         RMS_1w = as.numeric(RMS_1w) * 100,
+         W1.amp_1w = as.numeric(W1.amp_1w) * 100,
+         W1.lat_1w = as.numeric(W1.lat_1w) * 100,
+         # 2 week
+         RMS_2w = as.numeric(RMS_2w) * 100,
+         W1.amp_2w = as.numeric(W1.amp_2w) * 100,
+         W1.lat_2w = as.numeric(W1.lat_2w) * 100,
+         # 4-5 weeks
+         RMS_5w = as.numeric(RMS_5w) * 100,
+         W1.amp_5w = as.numeric(W1.amp_5w) * 100,
+         W1.lat_5w = as.numeric(W1.lat_5w) * 100,
+         )
+
+# Change in ABR W1 attributes from either:
+#     avr = average of last 2 timepionts or final = just the last timepoint
 Wave1_final_change =
   Wave1_data %>%
     group_by(ID, Condition, Freq, Inten) %>%
@@ -506,6 +560,60 @@ ggsave(filename = "ABR_W1 amp_change.jpg",
        plot = last_plot(),
        width = 9, height = 6, units = "in", dpi = 300)
 
+# % change
+Wave1_percent_change %>%
+  filter(Inten %in% c(40, 60, 80)) %>%
+  filter(! Freq %in% c("BBN")) %>%
+  # reformat for graphing:
+  dplyr::select(1:4, starts_with("W1.amp")) %>%
+  rename_with( ~ str_remove(., pattern = "W1.amp_")) %>%
+  gather(key = "Timepoint", value = "W1.amp", 5:ncol(.)) %>%
+  mutate(Timepoint = case_match(Timepoint, "HL" ~ "Hearing Loss", "1d" ~ "1 day", "1w" ~ "1 week", "2w" ~ "2 week", "5w" ~ "4-5 week"),
+         Freq = str_remove(Freq, " kHz") %>% as.numeric(),
+         Timepoint = if_else(ID %in% Shams & Timepoint == "4-5 week", "Sham", Timepoint) %>%
+            ordered(c("Sham", "Hearing Loss", "1 day", "1 week", "2 week", "4-5 week")),
+         Condition = if_else(ID %in% Shams & Timepoint == "Sham", "TTS", Condition),
+         ) %>%
+  filter(Condition == "TTS") %>%
+  filter(Timepoint %in% c("Baseline", "Hearing Loss", "1 day", "2 week", "4-5 week", "Sham")) %>%
+  ggplot(aes(x = Freq, y = W1.amp, color = Timepoint, group = Timepoint)) +
+    # shaded region of noise exposure
+    annotate('rect', xmin = 11, xmax = 13, ymin = -Inf, ymax = Inf, alpha = .3, fill = "pink") +
+    # 100% i.e. baseline levels
+    geom_hline(yintercept = 100, linewidth = 1.5, linetype = "longdash", color = "darkred") +
+    # annotate('text', label = "Baseline", x = 48, y = 110, color = "darkred") +
+    geom_text(data = data.frame(Freq = 44, W1.amp = 110, Inten = 40, Timepoint = "Sham"),
+              label = "Baseline", color = "darkred") +
+    # geom_smooth(se = FALSE) +
+    stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+                 fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+                 fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+                 geom = "errorbar", width = 0.1,
+                 position = position_dodge(0.3)) +
+    stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3,
+                 position = position_dodge(0.3)) +
+    stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1,
+                 position = position_dodge(0.3)) +
+    scale_x_continuous(breaks = c(4, 6, 8, 12, 16, 24, 32, 48)) +
+    labs(title = "Change in Wave 1 Amplitute from Baseline following noise exposure",
+         x = "Frequency (kHz)",
+         y = "% change from Baseline",
+         color = "Timepoint") +
+    facet_wrap( ~ Inten, scales = "fixed", nrow = 3) +
+    theme_bw() +
+    theme(
+      text = element_text(size = 12),
+      panel.grid.minor = element_blank(),
+      # axis.title.x = element_text(hjust = 0.45),
+      # legend.position = c(0.15, 0.25),
+      # legend.background=element_blank()
+    )
+
+ggsave(filename = "ABR_W1 amp_percent change.jpg",
+       path = ProjectFolder,
+       plot = last_plot(),
+       width = 8, height = 9, units = "in", dpi = 300)
+
 # W1 lat ANOVA ----------------------------------------------------------------
 
 W1.lat.aov <- aov(W1.lat.Gaus ~ Condition * Freq * Inten * Timepoint,
@@ -612,3 +720,56 @@ ggsave(filename = "ABR_W1 lat_change.jpg",
        plot = last_plot(),
        width = 9, height = 6, units = "in", dpi = 300)
 
+# % change
+Wave1_percent_change %>%
+  filter(Inten %in% c(40, 60, 80)) %>%
+  filter(! Freq %in% c("BBN")) %>%
+  # reformat for graphing:
+  dplyr::select(1:4, starts_with("W1.lat")) %>%
+  rename_with( ~ str_remove(., pattern = "W1.lat_")) %>%
+  gather(key = "Timepoint", value = "W1.lat", 5:ncol(.)) %>%
+  mutate(Timepoint = case_match(Timepoint, "HL" ~ "Hearing Loss", "1d" ~ "1 day", "1w" ~ "1 week", "2w" ~ "2 week", "5w" ~ "4-5 week"),
+         Freq = str_remove(Freq, " kHz") %>% as.numeric(),
+         Timepoint = if_else(ID %in% Shams & Timepoint == "4-5 week", "Sham", Timepoint) %>%
+           ordered(c("Sham", "Hearing Loss", "1 day", "1 week", "2 week", "4-5 week")),
+         Condition = if_else(ID %in% Shams & Timepoint == "Sham", "TTS", Condition),
+  ) %>%
+  filter(Condition == "TTS") %>%
+  filter(Timepoint %in% c("Baseline", "Hearing Loss", "1 day", "2 week", "4-5 week", "Sham")) %>%
+  ggplot(aes(x = Freq, y = W1.lat, color = Timepoint, group = Timepoint)) +
+    # shaded region of noise exposure
+    annotate('rect', xmin = 11, xmax = 13, ymin = -Inf, ymax = Inf, alpha = .3, fill = "pink") +
+    # 100% i.e. baseline levels
+    geom_hline(yintercept = 100, linewidth = 1.5, linetype = "longdash", color = "darkred") +
+    # annotate('text', label = "Baseline", x = 48, y = 110, color = "darkred") +
+    geom_text(data = data.frame(Freq = 44, W1.lat = 110, Inten = 40, Timepoint = "Sham"),
+              label = "Baseline", color = "darkred") +
+    # geom_smooth(se = FALSE) +
+    stat_summary(fun = function(x) mean(x, na.rm = TRUE),
+                 fun.min = function(x) mean(x, na.rm = TRUE) - se(x),
+                 fun.max = function(x) mean(x, na.rm = TRUE) + se(x),
+                 geom = "errorbar", width = 0.1,
+                 position = position_dodge(0.3)) +
+    stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "point", size = 3,
+                 position = position_dodge(0.3)) +
+    stat_summary(fun = function(x) mean(x, na.rm = TRUE), geom = "line", linewidth = 1,
+                 position = position_dodge(0.3)) +
+    scale_x_continuous(breaks = c(4, 6, 8, 12, 16, 24, 32, 48)) +
+    labs(title = "Change in Wave 1 Latency from Baseline following noise exposure",
+         x = "Frequency (kHz)",
+         y = "% change from Baseline",
+         color = "Timepoint") +
+    facet_wrap( ~ Inten, scales = "fixed", nrow = 3) +
+    theme_bw() +
+    theme(
+      text = element_text(size = 12),
+      panel.grid.minor = element_blank(),
+      # axis.title.x = element_text(hjust = 0.45),
+      # legend.position = c(0.15, 0.25),
+      # legend.background=element_blank()
+    )
+
+ggsave(filename = "ABR_W1 latency_percent change.jpg",
+       path = ProjectFolder,
+       plot = last_plot(),
+       width = 8, height = 9, units = "in", dpi = 300)
