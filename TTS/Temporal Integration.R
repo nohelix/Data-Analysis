@@ -205,7 +205,7 @@ BBN_alone_Rxn_pilot %>%
 
 
 BBN_TempInt_Rxn %>%
-  filter(Intensity < 90 & Intensity > 19) %>%
+  filter(Intensity < 95 & Intensity > 19) %>%
   filter(HL_state == "baseline") %>%
   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
            factor(levels = c("4", "8", "16", "32", "BBN")),
@@ -215,27 +215,28 @@ BBN_TempInt_Rxn %>%
   ggplot(aes(x = Intensity, y = Rxn, 
              color = as.factor(Duration), shape = as.factor(Duration),
              group = interaction(HL_state, as.factor(Duration)))) +
-  stat_summary(fun = mean,
-               fun.min = function(x) mean(x) - FSA::se(x),
-               fun.max = function(x) mean(x) + FSA::se(x),
-               geom = "errorbar", width = 1, position = position_dodge(1)) +
-  stat_summary(fun = mean, geom = "point", position = position_dodge(1), size = 2) +
-  geom_smooth(se = FALSE, na.rm = TRUE, linewidth = 1) +
-  labs(x = "Intensity (dB)",
-       y = "Reaction time (ms, mean +/- SE)",
-       color = "Duration", shape = "Duration",
-       title = "Reaction curves for BBN showing temporal integration at baseline"
-       ) +
-  scale_x_continuous(breaks = seq(-50, 90, by = 10)) +
-  theme_classic() +
-  theme(
-    plot.title = element_text(hjust = 0.5),
-    panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
-    panel.grid.minor.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
-  ) +
-  facet_wrap( ~ group, ncol = 2, scales = "fixed") +
-  theme(legend.position = c(0.9, 0.8),
-        legend.background=element_blank())
+    geom_line(aes(group = interaction(HL_state, as.factor(Duration), rat_ID))) +
+    stat_summary(fun = mean,
+                 fun.min = function(x) mean(x) - FSA::se(x),
+                 fun.max = function(x) mean(x) + FSA::se(x),
+                 geom = "errorbar", width = 1, position = position_dodge(1)) +
+    stat_summary(fun = mean, geom = "point", position = position_dodge(1), size = 2) +
+    geom_smooth(se = FALSE, na.rm = TRUE, linewidth = 1) +
+    labs(x = "Intensity (dB)",
+         y = "Reaction time (ms, mean +/- SE)",
+         color = "Duration", shape = "Duration",
+         title = "Reaction curves for BBN showing temporal integration at baseline"
+         ) +
+    scale_x_continuous(breaks = seq(-50, 90, by = 10)) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+      panel.grid.minor.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+    ) +
+    facet_wrap( ~ group, ncol = 2, scales = "fixed") +
+    theme(legend.position = c(0.9, 0.8),
+          legend.background=element_blank())
 
 BBN_TempInt_Rxn %>%
   filter(Intensity < 90 & Intensity > 19) %>%
