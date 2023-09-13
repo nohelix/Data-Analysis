@@ -207,7 +207,7 @@ Octave_graph_all =
     coord_cartesian(clip = "off") +
     # table on graph
     annotate(geom = "table", x = 12, y = 100,
-             label = list(discrimination_FA_n_table),
+             label = list(discrimination_FA_n_table %>% filter(! detail %in% c("Reversed", "Reversed, Punished"))),
              table.theme = ttheme_gtplain(
                padding = unit(c(1, 0.75), "char")
              )) +
@@ -358,6 +358,97 @@ Octave_graph_by_Range =
 
 print(Octave_graph_by_Range)
 
+
+# Individual Rxn Graphs -------------------------------------------------------
+
+octave_overall_graph =
+  ggplot(discrimination_FA_table_by_type %>%
+           filter(Type == "Broad"), 
+         aes(x = octave_steps, y = FA_percent_detailed * 100,
+             color = detail, linetype = genotype,
+             group = interaction(detail, line, genotype))) +
+  geom_hline(yintercept = 50, color = "forestgreen", linewidth = 1.5) +
+  # mean for genotypes across all frequencies
+  stat_summary(fun = mean, geom = "line", linewidth = 1.5, position = position_dodge(.2)) +
+  # mean for each frequency by genotype
+  stat_summary(aes(shape = line), fun = mean, geom = "point",
+               position = position_dodge(.2), size = 2, stroke = 2) +
+  # add labels by x-axis
+  # geom_text(data = tibble(octave_steps = 12, FA_percent_detailed = 0,
+  #                         tone = "No Go", genotype = "WT", line = "Fmr1", detail = "Normal"),
+  #           aes(label = tone), size = 5, show.legend = FALSE, vjust = 2, hjust = -0.2,
+  #           family = "EconSansCndReg") +
+  geom_text(data = tibble(octave_steps = 1, FA_percent_detailed = 0,
+                          tone = "Go", genotype = "WT", line = "Fmr1", detail = "Normal"),
+            aes(label = tone), size = 4, show.legend = FALSE, vjust = 3.1, hjust = 1,
+            family = "EconSansCndReg") +
+  # # Graph lines for each individual
+  # Note, alpha <1 not working (lines disappearing) for some reason
+  # geom_line(aes(group = interaction(detail, line, genotype, as.factor(rat_ID)))) + 
+  coord_cartesian(clip = "off") +
+  scale_x_continuous(breaks = seq(0, 12, by = 2)) +
+  scale_y_continuous(limits = c(0, 100)) +
+  # hard code lines
+  scale_linetype_manual(values = c("WT" = "solid", "Het" = "longdash", "KO" = "dotted")) +
+  # hard-code colors
+  scale_color_manual(values = c("Normal" = "black", "Reversed" = "darkgrey",
+                                "Normal, Background" = "violetred",
+                                "Reversed, Punished" = "royalblue")) +
+  facet_wrap(~ interaction(detail), ncol = 2) +
+  labs(x = "Octave Step",
+       y = "False Alarm %",
+       color = "Presentation Type", shape = "Line", linetype = "Genotype",
+       title = "Discrimination across an octave") +
+  theme_ipsum_es()
+
+print(octave_overall_graph)
+
+
+octave_individual_graphs =
+  discrimination_data %>%
+  # filter(detail %in% c("Normal", "Normal, Background", "Reversed", "Reversed, Punished")) %>%
+  # filter(rat_ID %in% c(157, 196)) %>%
+  group_by(rat_ID, rat_name) %>%
+  do(individual_graphs = 
+      ggplot(data = ., 
+             aes(x = octave_steps, y = FA_percent_detailed * 100,
+                 color = detail, group = detail)) +
+      geom_hline(yintercept = 50, color = "forestgreen", linewidth = 1.5) +
+      # generate lines
+      stat_summary(fun = mean, geom = "line", linewidth = 1.5, position = position_dodge(0.3)) +
+      stat_summary(fun = mean,
+                  fun.min = function(x) mean(x) - FSA::se(x),
+                  fun.max = function(x) mean(x) + FSA::se(x),
+                  geom = "errorbar", width = 0, linewidth = 1, position = position_dodge(0.3)) +
+      stat_summary(fun = mean, geom = "point", size = 3, position = position_dodge(0.3)) +
+      # add labels by x-axis
+      geom_text(data = tibble(octave_steps = 1, FA_percent_detailed = 0,
+                              tone = "Go", genotype = "WT", line = "Fmr1", detail = "Normal"),
+                aes(label = tone), size = 4, show.legend = FALSE, vjust = 3.1, hjust = 1,
+                color = "black", family = "EconSansCndReg") +
+      # hard-code colors
+      scale_color_manual(values = c("Normal" = "black", "Reversed" = "darkgrey",
+                                    "Normal, Background" = "violetred",
+                                    "Reversed, Punished" = "royalblue")) +
+      coord_cartesian(clip = "off") +
+      scale_x_continuous(breaks = seq(0, 12, by = 2)) +
+      scale_y_continuous(limits = c(0, 100)) +
+      facet_wrap(~ Type, ncol = 2) +
+      labs(x = "Octave Step",
+           y = "False Alarm %",
+           color = "Presentation Type", 
+           title = glue("{.$rat_name} ({.$genotype}): Discrimination across an octave")) +
+      theme_ipsum_es() 
+  )
+
+# print(filter(octave_individual_graphs, rat_name == "")$individual_graphs)
+# # Save individual graphs
+# apply(octave_individual_graphs, 1,
+#       function(df) ggsave(filename = glue("Octave {df$rat_name}.jpg"), # name of file
+#                           path = save_folder, # location where file will save
+#                           plot = df$oddball_single_rat_graph,
+#                           width = 6, height = 4, units = "in", dpi = 300))
+# octave_individual_graphs$individual_graphs
 
 # Learning graphs ---------------------------------------------------------
 
