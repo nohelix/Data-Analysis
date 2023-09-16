@@ -51,6 +51,8 @@ BBN_TempInt_TH =
   filter(! rat_name %in% c("Green2", "Orange1", "Blue2")) %>%
   # Remove rat with permanent threshold shifts
   filter(rat_ID != 191 | rat_name != "Green12") %>%
+  # Remove struggling rat
+  filter(rat_name != "Green24") %>%
   # limit to BBN with no background noise
   filter(detail == "Alone" & Frequency == 0 & BG_Intensity  == "None") %>%
   # Add group numbers to look for effects between groups
