@@ -2,8 +2,6 @@ source("Fmr1 vs Tsc2 in LE data.R")
 library(ggpmisc) # for themes
 library(gridExtra)
 
-save_folder = "C:/Users/Noelle/Box/Behavior Lab/Shared/Ben/Oddball individual graphs/"
-
 n_at_mean <- function(x){
   #there are 3 positions so every rat is there in triplicate
   return(data.frame(y = mean(tail(x, n = 1)), label = paste0("n = ", length(x)/3)))
@@ -40,6 +38,7 @@ oddball_core_data = dataset %>%
                                task == "Reset" ~ "Reset",
                                task == "Catch trials" ~ "Catch",
                                task == "Base case" & detail == "Round 2" ~ "Base Case 2",
+                               task == "Base case" & detail == "Round 3" ~ "Base Case 3",
                                TRUE ~ str_extract(analysis_type, pattern = "(?<=\\().*(?=\\))")))
   # modify to find day after catch trials
   # group_by(rat_ID) %>% 
@@ -107,14 +106,14 @@ oddball_reaction_n_table = oddball_reaction %>%
   rename(Line = line, Genotype = genotype, Condition = challenge)
 
 
-# Graph -------------------------------------------------------------------
 
+# individual graphs -------------------------------------------------------
 # All rats individual graphs
 
 # 139, 145, 153
 individual_graphs =
   oddball_reaction_by_frequency %>% 
-    filter(challenge %in% c("Standard", "Base Case 2", "Middle Odds", "End Odds", "Background", "Reset", "Catch", "Reset 2")) %>%
+    filter(challenge %in% c("Standard", "Base Case 2", "Base Case 3", "Middle Odds", "End Odds", "Background", "Reset", "Catch", "Reset 2")) %>%
     # filter(rat_name == "RP3") %>%
     group_by(rat_ID, rat_name) %>%
     do(oddball_single_rat_graph = 
@@ -132,7 +131,7 @@ individual_graphs =
       stat_summary(aes(shape = frequency, group = interaction(frequency, challenge)),
                    fun = mean, geom = "point", size = 5, stroke = 2) +
       scale_shape_manual(values = c("4" = 21, "8" = 22, "16" = 23, "32" = 24)) +
-      scale_color_manual(values = c("Standard" = "black", "Base Case 2" = "grey30",
+      scale_color_manual(values = c("Standard" = "black", "Base Case 2" = "grey30", "Base Case 3" = "darkgrey",
                                     "Background" = "tan4", "Catch" = "darkgreen",
                                     "End Odds" = "violetred", "Middle Odds" = "royalblue",
                                     "Reset" = "goldenrod", "Reset 2" = "yellow3")) +
@@ -146,14 +145,21 @@ individual_graphs =
       theme_ipsum_es()
     )
 
-# print(filter(individual_graphs, rat_name == "")$oddball_single_rat_graph)
-# # Save individual graphs
+# # See a specific graph
+# print(filter(individual_graphs, rat_name == "GP5")$oddball_single_rat_graph)
+
+# # Save all the individual graphs
 # apply(individual_graphs, 1,
 #       function(df) ggsave(filename = glue("Oddball {df$rat_name}.jpg"), # name of file
 #                           path = save_folder, # location where file will save
 #                           plot = df$oddball_single_rat_graph,
-#                           width = 6, height = 4, units = "in", dpi = 300))
+#                           width = 10, height = 6, units = "in", dpi = 300))
+
+# # Show all the individual graphs
 # individual_graphs$oddball_single_rat_graph
+
+
+# Graph -------------------------------------------------------------------
 
 condition_to_graph = c("Standard")
 

@@ -437,7 +437,7 @@ octave_individual_graphs =
       labs(x = "Octave Step",
            y = "False Alarm %",
            color = "Presentation Type", 
-           title = glue("{.$rat_name} ({.$genotype}): Discrimination across an octave")) +
+           title = glue("{.$rat_name} (#{.$rat_ID}) {.$line} {.$genotype}: Discrimination across an octave")) +
       theme_ipsum_es() 
   )
 
@@ -446,8 +446,8 @@ octave_individual_graphs =
 # apply(octave_individual_graphs, 1,
 #       function(df) ggsave(filename = glue("Octave {df$rat_name}.jpg"), # name of file
 #                           path = save_folder, # location where file will save
-#                           plot = df$oddball_single_rat_graph,
-#                           width = 6, height = 4, units = "in", dpi = 300))
+#                           plot = df$individual_graphs,
+#                           width = 10, height = 6, units = "in", dpi = 300))
 # octave_individual_graphs$individual_graphs
 
 # Learning graphs ---------------------------------------------------------
