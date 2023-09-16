@@ -98,34 +98,34 @@ BBN_TempInt_Rxn_change =
 
 # Threshold Graph ---------------------------------------------------------
 
-# Boxplot - BBN Alone vs. Mixed
-BBN_alone_TH_pilot %>%
-# BBN_TempInt_TH %>%
-  mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
-           factor(levels = c("4", "8", "16", "32", "BBN")),
-         BG = if_else(BG_type == "None", "None", paste0(BG_type, "\n", BG_Intensity, "dB")),
-         HL_state = factor(HL_state, levels = c("baseline", "HL", "recovery", "post-HL"))) %>%
-  filter(HL_state %in% c("baseline", "post-HL")) %>%
-  mutate(HL_state = if_else(HL_state == "post-HL", "After Hearing Loss and recovery", "Baseline") %>%
-           factor(levels = c("Baseline", "After Hearing Loss and recovery"))) %>%
-  ggplot(aes(x = as.factor(Duration), y = TH, fill = HL_state, group = interaction(Duration, HL_state))) +
-    geom_boxplot(na.rm = TRUE, position = position_dodge(1), linewidth = 1, width = 0.8) +
-    stat_summary(fun.data = n_fun, geom = "text", show.legend = FALSE, position = position_dodge(1), vjust = 2, size = 2) +
-    scale_fill_manual(values = c("#F8766D", "#00BFC4"), guide = "legend") +
-    labs(title = "BBN thresholds by durations",
-         x = "Stimulus Duration (ms)",
-         y = "Threshold (dB)",
-         fill = "Condition",
-         caption = "Dropped individual with permanent threshold shifts. We only have data for the 50ms alone for all rats."
-         ) +
-    # facet_wrap( ~ HL_state, ncol = 5, scales = "free_x") +
-    theme_classic() +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      legend.position = c(0.85, 0.93),
-      legend.background=element_blank(),
-      panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
-    )
+# # Boxplot - Pilot group pre and post noise exposure
+# BBN_alone_TH_pilot %>%
+# # BBN_TempInt_TH %>%
+#   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
+#            factor(levels = c("4", "8", "16", "32", "BBN")),
+#          BG = if_else(BG_type == "None", "None", paste0(BG_type, "\n", BG_Intensity, "dB")),
+#          HL_state = factor(HL_state, levels = c("baseline", "HL", "recovery", "post-HL"))) %>%
+#   filter(HL_state %in% c("baseline", "post-HL")) %>%
+#   mutate(HL_state = if_else(HL_state == "post-HL", "After Hearing Loss and recovery", "Baseline") %>%
+#            factor(levels = c("Baseline", "After Hearing Loss and recovery"))) %>%
+#   ggplot(aes(x = as.factor(Duration), y = TH, fill = HL_state, group = interaction(Duration, HL_state))) +
+#     geom_boxplot(na.rm = TRUE, position = position_dodge(1), linewidth = 1, width = 0.8) +
+#     stat_summary(fun.data = n_fun, geom = "text", show.legend = FALSE, position = position_dodge(1), vjust = 2, size = 2) +
+#     scale_fill_manual(values = c("#F8766D", "#00BFC4"), guide = "legend") +
+#     labs(title = "BBN thresholds by durations",
+#          x = "Stimulus Duration (ms)",
+#          y = "Threshold (dB)",
+#          fill = "Condition",
+#          caption = "Dropped individual with permanent threshold shifts. We only have data for the 50ms alone for all rats."
+#          ) +
+#     # facet_wrap( ~ HL_state, ncol = 5, scales = "free_x") +
+#     theme_classic() +
+#     theme(
+#       plot.title = element_text(hjust = 0.5),
+#       legend.position = c(0.85, 0.93),
+#       legend.background=element_blank(),
+#       panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+#     )
 
 # ggsave(filename = "TH_BBN_pilot.jpg",
 #        path = save_folder,
@@ -217,6 +217,7 @@ BBN_TempInt_Rxn %>%
   ggplot(aes(x = Intensity, y = Rxn, 
              color = as.factor(Duration), shape = as.factor(Duration),
              group = interaction(HL_state, as.factor(Duration)))) +
+    # Individual lines
     geom_line(aes(group = interaction(HL_state, as.factor(Duration), rat_ID))) +
     stat_summary(fun = mean,
                  fun.min = function(x) mean(x) - FSA::se(x),
@@ -251,6 +252,8 @@ BBN_TempInt_Rxn %>%
   ggplot(aes(x = Intensity, y = Rxn, 
              color = as.factor(Duration), shape = as.factor(Duration),
              group = interaction(HL_state, as.factor(Duration)))) +
+  # # Individual lines
+  # geom_line(aes(group = interaction(HL_state, as.factor(Duration), rat_ID))) +
   stat_summary(fun = mean,
                fun.min = function(x) mean(x) - FSA::se(x),
                fun.max = function(x) mean(x) + FSA::se(x),
