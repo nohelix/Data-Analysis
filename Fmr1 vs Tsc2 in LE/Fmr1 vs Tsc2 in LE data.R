@@ -3,6 +3,9 @@
 # Location of the datasets
 projects_folder = "Z:/Behavior-autoanalysis/"
 
+# where to save graphs
+save_folder = "C:/Users/Noelle/Box/Behavior Lab/Shared/Ben/Individual graphs"
+
 # Sensitivity cutoff for determining hearing thresholds
 TH_cutoff = 1.5
 
