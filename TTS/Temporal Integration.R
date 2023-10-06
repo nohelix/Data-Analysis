@@ -218,7 +218,8 @@ BBN_TempInt_Rxn %>%
              color = as.factor(Duration), shape = as.factor(Duration),
              group = interaction(HL_state, as.factor(Duration)))) +
     # Individual lines
-    geom_line(aes(group = interaction(HL_state, as.factor(Duration), rat_ID))) +
+    geom_line(aes(group = interaction(HL_state, as.factor(Duration), rat_ID)),
+              alpha = 0.5) +
     stat_summary(fun = mean,
                  fun.min = function(x) mean(x) - FSA::se(x),
                  fun.max = function(x) mean(x) + FSA::se(x),
