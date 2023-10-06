@@ -122,11 +122,13 @@ TH_table = left_join(TH_table,
 
 Rxn_table_over_TH = left_join(Rxn_table_over_TH,
                               select(rat_decoder, all_of(c("rat_ID", "line", "genotype", "sex"))),
-                              by = "rat_ID")
+                              by = "rat_ID") %>%
+  rename(Frequency = `Freq (kHz)`, Duration = `Dur (ms)`, Intensity = `Inten (dB)`)
 
 Rxn_table = left_join(Rxn_table,
                       select(rat_decoder, all_of(c("rat_ID", "line", "genotype", "sex"))),
-                      by = "rat_ID")
+                      by = "rat_ID") %>%
+  rename(Frequency = `Freq (kHz)`, Duration = `Dur (ms)`, Intensity = `Inten (dB)`)
 
 Learning_streak = left_join(Learning_streak,
                             select(rat_decoder, all_of(c("rat_ID", "line", "genotype", "sex"))),
