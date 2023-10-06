@@ -158,6 +158,8 @@ Tsc2_Rxn_over_TH$Gaus = LambertW::Gaussianize(Tsc2_Rxn_over_TH$Rxn)[, 1]
 
 # Graphs ------------------------------------------------------------------
 
+single_Frequency = 50
+  
 Rxn_table %>%
   {if (drop_TP3) filter(., rat_name != "TP3")} %>%
   filter(line == "Tsc2-LE") %>%
@@ -165,8 +167,10 @@ Rxn_table %>%
   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN")) %>%
   filter(! str_detect(Intensity, pattern = "5$")) %>%
   filter(Intensity < 90 & Intensity > 10) %>%
-  filter(Frequency == single_Frequency) %>%
-  ggplot(aes(x = Intensity, y = Rxn, color = genotype, group = genotype)) +
+  # filter(Frequency == single_Frequency) %>%
+  ggplot(aes(x = Intensity, y = Rxn, 
+             color = genotype, linetype = as.factor(Duration), 
+             group = interaction(Duration, genotype))) +
   stat_summary(fun = mean,
                fun.min = function(x) mean(x) - se(x),
                fun.max = function(x) mean(x) + se(x),
