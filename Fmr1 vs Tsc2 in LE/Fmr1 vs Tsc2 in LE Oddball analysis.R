@@ -29,7 +29,9 @@ oddball_core_data = dataset %>%
   select(all_of(oddball_core_columns)) %>%
   # drop Oddball and Octave
   filter(experiment %in% c("Oddball")) %>%
-  mutate(challenge = case_when(task == "BG test" ~ "Background (30dB)",
+  mutate(challenge = case_when(task == "CNO 5mg/kg" ~ "CNO 5mg/kg",
+                               task == "CNO 3mg/kg" ~ "CNO 3mg/kg",
+                               task == "BG test" ~ "Background (30dB)",
                                task == "Probe trials" ~ "Probe trials",
                                task == "Uneven odds, 5 most frequent" ~ "Middle Odds",
                                task == "Uneven odds, 6 most frequent" ~ "End Odds",
@@ -39,6 +41,7 @@ oddball_core_data = dataset %>%
                                task == "Catch trials" ~ "Catch",
                                task == "Base case" & detail == "Round 2" ~ "Base Case 2",
                                task == "Base case" & detail == "Round 3" ~ "Base Case 3",
+                               task == "Base case" & detail == "Round 4" ~ "Base Case 4",
                                TRUE ~ str_extract(analysis_type, pattern = "(?<=\\().*(?=\\))")))
   # modify to find day after catch trials
   # group_by(rat_ID) %>% 
@@ -145,8 +148,8 @@ individual_graphs =
       theme_ipsum_es()
     )
 
-# # See a specific graph
-# print(filter(individual_graphs, rat_name == "GP5")$oddball_single_rat_graph)
+# See a specific graph
+# print(filter(individual_graphs, rat_name == "LP4")$oddball_single_rat_graph)
 
 # # Save all the individual graphs
 # apply(individual_graphs, 1,
@@ -157,6 +160,52 @@ individual_graphs =
 
 # # Show all the individual graphs
 # individual_graphs$oddball_single_rat_graph
+
+individual_graphs_CNO =
+  oddball_core_data %>%
+  # Omit Training & Reset days
+  dplyr::filter(! task %in% c("Training")) %>%
+  filter(rat_name %in% c("RP3", "RP4", "BP2")) %>%
+  filter(task %in% c("Base case", "CNO 3mg/kg", "CNO 5mg/kg")) %>%
+  mutate(frequency = str_extract(file_name, pattern = "^[:digit:]+?(?=kHz)") %>% 
+           factor(levels = c("4", "8", "16", "32")),) %>% 
+  group_by(rat_ID, rat_name, frequency, task) %>% 
+  do(arrange(., desc(date)) %>% head(n=4) %>% 
+       unnest(reaction) %>% rename(position = `Inten (dB)`)) %>%
+  ungroup %>%
+  # only keep frequencies that have a CNO done
+  filter(any(task %in% c("CNO 3mg/kg", "CNO 5mg/kg")), .by = c(rat_ID, rat_name, frequency)) %>%
+  group_by(rat_ID, rat_name, frequency) %>% 
+  do(oddball_single_rat_graph =
+       ggplot(data = ., 
+              aes(x = position, y = Rxn,
+                  color = task, fill = frequency,
+                  group = task)) +
+       # mean for genotypes across all frequencies
+       stat_summary(aes(color = "Average"),
+                    fun = mean,
+                    fun.min = function(x) min(x),
+                    fun.max = function(x) max(x),
+                    geom = "errorbar", linewidth = 10, width = 0) +
+       # mean for each frequency by genotype
+       stat_summary(aes(group = interaction(frequency, task)),
+                    geom = "line", fun = mean, linewidth = 2) +
+       geom_line(aes(group = date)) +
+       scale_shape_manual(values = c("4" = 21, "8" = 22, "16" = 23, "32" = 24)) +
+       scale_color_manual(values = c("Base case" = "black",
+                                     "CNO 3mg/kg" = "violetred", "CNO 5mg/kg" = "royalblue",
+                                     "Average" = "grey")) +
+       scale_x_continuous(breaks = seq(2, 6, by = 1)) +
+       labs(title = paste0(unique(.$rat_name), " (#", unique(.$rat_ID), ") ", 
+                           unique(.$line), " ", unique(.$genotype), "     Frequency: ", unique(.$frequency), " kHz"),
+            x = "Position of different 'go tone'",
+            y = "Reaction time",
+            fill = "Frequency", shape = "Frequency",
+            color = "Condition") +
+       theme_ipsum_es())
+
+# # Show all the individual graphs
+# individual_graphs_CNO$oddball_single_rat_graph
 
 
 # Graph -------------------------------------------------------------------
@@ -321,3 +370,29 @@ oddball_odds_graph =
   theme(legend.key.width = unit(1.5,"cm"))
 
 print(oddball_odds_graph)
+
+oddball_CNO_graph =
+  oddball_reaction %>%
+  filter(challenge %in% c("Standard", "Base Case 3", "Base Case 4", "CNO 3mg/kg", "CNO 5mg/kg")) %>%
+  ggplot(aes(x = position, y = reaction_norm, 
+             color = genotype, fill = line, linetype = challenge,
+             group = interaction(line, genotype, challenge))) +
+  # geom_smooth(se = FALSE, linewidth = 2) +
+  stat_summary(geom = "line", fun = mean, linewidth = 2) +
+  stat_summary(aes(shape = line), geom = "point", fun = mean, size = 3, stroke = 3) +
+  # geom_point(aes(shape = line), size = 3, stroke = 3) +
+  scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
+  scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
+  scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
+  # scale_linetype_manual(values = c("Standard" = "solid", "Middle Odds" = "dotdash", "End Odds" = "dotted")) +
+  scale_x_continuous(breaks = seq(2, 6, by = 1)) +
+  labs(x = "Position of different 'go tone'",
+       y = "Reaction time\nNormalized by rat",
+       fill = "Line", shape = "Line",
+       color = "Genotype",
+       linetype = "Condition") +
+  theme_ipsum_es() +
+  guides(colour = guide_legend(override.aes = list(linewidth = 1))) +
+  theme(legend.key.width = unit(1.5,"cm"))
+
+print(oddball_CNO_graph)
