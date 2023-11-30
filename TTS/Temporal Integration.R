@@ -98,6 +98,20 @@ BBN_TempInt_Rxn_change =
 #   fwrite(paste0(save_folder, "BBN_alone_Rxn_pilot_", Sys.Date(),".csv"), row.names = FALSE)
 
 
+# Recheck Thresholds ------------------------------------------------------
+
+Threshold_Recheck = 
+  BBN_TempInt_TH %>% 
+    filter(rat_ID %in% Group_3) %>%
+    group_by(rat_ID, rat_name, Duration) %>%
+    do(tibble(TH_1 = filter(., detail != "Recheck")$TH, 
+              TH_2 = if(! is_na(filter(., detail == "Recheck")$TH)) filter(., detail == "Recheck")$TH
+                        else NA_integer_,
+              Improvement = round(TH_1 - TH_2, digits = 1))
+       )
+
+print(Threshold_Recheck)
+
 # Threshold Graph ---------------------------------------------------------
 
 # # Boxplot - Pilot group pre and post noise exposure
@@ -161,6 +175,7 @@ BBN_TempInt_Rxn_change =
 #     panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
 #   )
 
+TempInt_TH_graph = 
 BBN_TempInt_TH %>%
   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
            factor(levels = c("4", "8", "16", "32", "BBN")),
@@ -189,6 +204,7 @@ BBN_TempInt_TH %>%
     panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
   )
 
+print(TempInt_TH_graph)
 
 # Reaction Graph ----------------------------------------------------------
 
@@ -236,6 +252,7 @@ BBN_alone_Rxn_pilot %>%
 #        width = 8, height = 6, units = "in", dpi = 300)
 
 
+TempInt_Rxn_Graph = 
 BBN_TempInt_Rxn %>%
   filter(Intensity < 95 & Intensity > 24) %>%
   filter(HL_state == "baseline") %>%
@@ -272,6 +289,8 @@ BBN_TempInt_Rxn %>%
     facet_wrap( ~ group, ncol = 2, scales = "fixed") +
     theme(#legend.position = c(0.9, 0.8),
           legend.background=element_blank())
+
+print(TempInt_Rxn_Graph)
 
 # BBN_TempInt_Rxn %>%
 #   filter(Intensity < 90 & Intensity > 19) %>%
