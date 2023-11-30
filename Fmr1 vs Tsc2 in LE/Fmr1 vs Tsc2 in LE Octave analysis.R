@@ -4,7 +4,7 @@ library(glue)
 
 # Get core data -----------------------------------------------------------
 octave_core_columns = c("date", "rat_name", "rat_ID", "invalid",
-                 "file_name", "experiment", "phase", "task", "detail", 
+                 "file_name", "experiment", "phase", "task", "detail", "dprime",
                  "stim_type", "analysis_type", "complete_block_count", 
                  "FA_detailed", "reaction", "FA_percent", "hit_percent")
 
@@ -33,6 +33,8 @@ octave_core_data = left_join(octave_core_data, rat_archive, by = c("rat_ID" = "R
 discrimination_data = 
   octave_core_data %>%
   filter(analysis_type == "Octave") %>%
+  # drop the d'
+  select(-dprime) %>%
   # get reaction time
   mutate(reaction = map_dbl(reaction, pluck, "Rxn")*1000) %>%
   # get d'
@@ -155,15 +157,18 @@ octave_training_table =
 
 octave_summary_data =
   octave_core_data %>%
+  unnest(dprime) %>%
   summarise(date = "Average", day = 0, rat_name = unique(rat_name), 
             experiment = unique(experiment), genotype = unique(genotype), line = unique(line),
             phase = unique(phase), task = unique(task), detail = unique(detail),
             complete_block_count = mean(complete_block_count, na.rm = TRUE),
             FA_percent = mean(FA_percent, na.rm = TRUE), hit_percent = mean(hit_percent, na.rm = TRUE),
+            dprime = mean(dprime, na.rm = TRUE), 
             .by = c(rat_ID, task, detail))
 
 octave_holding_normal_short_data =
   octave_core_data %>%
+  unnest(dprime) %>%
   filter(task == "Holding" & detail == "Normal") %>%
   group_by(rat_ID) %>%
     #select only the last 3 days of holding prior to reversal
@@ -171,7 +176,8 @@ octave_holding_normal_short_data =
 
 octave_reversal_data =
   octave_core_data %>%
-  filter(task == "Training" & detail == "Reversed") %>%
+  unnest(dprime) %>%
+  filter(task %in% c("Training", "Holding") & detail == "Reversed") %>%
     # set date as relative
   group_by(rat_ID) %>%
     do(arrange(., date) %>% mutate(day = row_number())) %>%
@@ -394,7 +400,7 @@ octave_overall_graph =
   scale_color_manual(values = c("Normal" = "black", "Reversed" = "darkgrey",
                                 "Normal, Background" = "violetred",
                                 "Reversed, Punished" = "royalblue")) +
-  facet_wrap(~ interaction(detail), ncol = 2) +
+  facet_wrap(~ interaction(detail), ncol = 3) +
   labs(x = "Octave Step",
        y = "False Alarm %",
        color = "Presentation Type", shape = "Line", linetype = "Genotype",
@@ -475,10 +481,10 @@ Octave_learning_plot =
     theme_ipsum_es() +
     theme(panel.grid.major.x = element_line(colour = "white", linewidth = 0.5))
 
-print(Octave_learning_plot)
+# print(Octave_learning_plot)
 
 Octave_graph_Reversal_learning =
-  ggplot(filter(octave_reversal_data),
+  ggplot(filter(octave_reversal_data, task != "Discriminiation"),
          aes(x = day, 
              y = FA_percent * 100,
              # y = hit_percent * 100,
@@ -487,21 +493,23 @@ Octave_graph_Reversal_learning =
     # Add criterion line
     geom_hline(aes(yintercept = 20), linewidth = 1.5, linetype = "dashed", color = "goldenrod") +
     # Individual lines
-    geom_line(aes(group = interaction(line, genotype, rat_name)))+
+    geom_line(aes(group = interaction(line, genotype, rat_ID)), alpha = 0.3) +
     # mean for genotypes across all frequencies
-    stat_summary(fun = mean, geom = "line", linewidth = 1.5, position = position_dodge(.2)) +
+    stat_summary(fun = mean, geom = "line", linewidth = 1.5) +
     # mean for each frequency by genotype
     stat_summary(aes(shape = line), fun = mean, geom = "point",
-                 position = position_dodge(.2), size = 2, stroke = 2) +
+                 size = 2, stroke = 2) +
     # Mark the Day 0 is average
     geom_text(aes(x = 1.8, y = 15, label = "Average")) +
     # Add n table
-    annotate(geom = "table", x = 70, y = 100,
+    annotate(geom = "table", x = 3, y = 26,
              label = list(octave_training_table %>%
                             filter(detail %in% c("Reversed"))),
              table.theme = ttheme_gtplain(
                padding = unit(c(1, 0.75), "char")
              )) +
+    # limits on x-axis
+    xlim(-4, 50) +
     scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
     scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
     scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
@@ -514,8 +522,44 @@ Octave_graph_Reversal_learning =
 
 print(Octave_graph_Reversal_learning)
 
+Octave_graph_Reversal_learning_dprime =
+  ggplot(filter(octave_reversal_data, task != "Discriminiation"),
+         aes(x = day, 
+             y = dprime,
+             color = genotype, fill = line,
+             group = interaction(line, genotype))) +
+  # Individual lines
+  geom_line(aes(group = interaction(line, genotype, rat_ID)), alpha = 0.3) +
+  # mean for genotypes across all frequencies
+  stat_summary(fun = mean, geom = "line", linewidth = 1.5) +
+  # mean for each frequency by genotype
+  stat_summary(aes(shape = line), fun = mean, geom = "point",
+               size = 2, stroke = 2) +
+  # Mark the Day 0 is average
+  geom_text(aes(x = 1.8, y = 3.5, label = "Average")) +
+  # Add n table
+  # annotate(geom = "table", x = 3, y = 26,
+  #          label = list(octave_training_table %>%
+  #                         filter(detail %in% c("Reversed"))),
+  #          table.theme = ttheme_gtplain(
+  #            padding = unit(c(1, 0.75), "char")
+  #          )) +
+  # limits on x-axis
+  xlim(-4, 50) +
+  scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
+  scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
+  scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
+  labs(x = "Days on Reversal",
+       y = "dprime",
+       title = "Reversal",
+       fill = "Line", shape = "Line",
+       color = "Genotype") +
+  theme_ipsum_es()
+
+print(Octave_graph_Reversal_learning_dprime)
+
 Octave_graph_Reversal_learning_hit =
-  ggplot(filter(octave_reversal_data, day < 10),
+  ggplot(filter(octave_reversal_data, task != "Discriminiation"),
          aes(x = day, 
              y = hit_percent * 100,
              color = genotype, fill = line,
@@ -525,10 +569,10 @@ Octave_graph_Reversal_learning_hit =
   # Individual lines
   geom_line(aes(group = interaction(line, genotype, rat_name)))+
   # mean for genotypes across all frequencies
-  stat_summary(fun = mean, geom = "line", linewidth = 1.5, position = position_dodge(.2)) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1.5) +
   # mean for each frequency by genotype
   stat_summary(aes(shape = line), fun = mean, geom = "point",
-               position = position_dodge(.2), size = 2, stroke = 2) +
+               size = 2, stroke = 2) +
   # Mark the Day 0 is average
   geom_text(aes(x = 0, y = 101, label = "Average")) +
   # Add n table
@@ -538,6 +582,8 @@ Octave_graph_Reversal_learning_hit =
            table.theme = ttheme_gtplain(
              padding = unit(c(1, 0.75), "char")
            )) +
+  # limits on x-axis
+  xlim(-4, 10) +
   scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
   scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
   scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
@@ -548,4 +594,4 @@ Octave_graph_Reversal_learning_hit =
        color = "Genotype") +
   theme_ipsum_es()
 
-print(Octave_graph_Reversal_learning_hit)
+# print(Octave_graph_Reversal_learning_hit)
