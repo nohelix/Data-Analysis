@@ -170,7 +170,9 @@ individual_graphs_CNO =
   mutate(frequency = str_extract(file_name, pattern = "^[:digit:]+?(?=kHz)") %>% 
            factor(levels = c("4", "8", "16", "32")),) %>% 
   group_by(rat_ID, rat_name, frequency, task) %>% 
-  do(arrange(., desc(date)) %>% head(n=4) %>% 
+  do(arrange(., desc(date)) %>% 
+       # Select most recent days for each frequency and task
+       head(n = 4) %>% 
        unnest(reaction) %>% rename(position = `Inten (dB)`)) %>%
   ungroup %>%
   # only keep frequencies that have a CNO done
@@ -371,25 +373,42 @@ oddball_odds_graph =
 
 print(oddball_odds_graph)
 
-oddball_CNO_graph =
-  oddball_reaction %>%
-  filter(challenge %in% c("Standard", "Base Case 3", "Base Case 4", "CNO 3mg/kg", "CNO 5mg/kg")) %>%
+# oddball_CNO_graph =
+  oddball_core_data %>%
+  # Omit Training & Reset days
+  dplyr::filter(! task %in% c("Training")) %>%
+  # only keep rats that have been treated with CNO
+  filter(rat_name %in% c("RP3", "RP4", "BP2")) %>%
+  # only keep relevant trial types/days
+  filter(task %in% c("Base case", "CNO 3mg/kg", "CNO 5mg/kg")) %>%
+  # break into frequencies so that we can keep a set number
+  mutate(frequency = str_extract(file_name, pattern = "^[:digit:]+?(?=kHz)") %>% 
+           factor(levels = c("4", "8", "16", "32")),) %>% 
+  group_by(rat_ID, rat_name, genotype, frequency, task) %>% 
+  do(arrange(., desc(date)) %>% 
+       # Select most recent days for each frequency and task
+       head(n = 5) %>% 
+       unnest(reaction) %>% 
+       rename(position = `Inten (dB)`))  %>%
+  ungroup %>%
+  summarise(reaction = mean(Rxn, na.rm = TRUE) * 1000,
+            .by = c(rat_ID, rat_name, frequency, genotype, task, position)) %>%
+  group_by(rat_ID, rat_name, frequency, genotype, task) %>% 
+  do(mutate(., reaction_norm = reaction/filter(., position == min(position))$reaction)) %>%
+  ungroup %>%
   ggplot(aes(x = position, y = reaction_norm, 
-             color = genotype, fill = line, linetype = challenge,
-             group = interaction(line, genotype, challenge))) +
-  # geom_smooth(se = FALSE, linewidth = 2) +
+             color = task, linetype = genotype,
+             group = interaction(genotype, task))) +
   stat_summary(geom = "line", fun = mean, linewidth = 2) +
-  stat_summary(aes(shape = line), geom = "point", fun = mean, size = 3, stroke = 3) +
-  # geom_point(aes(shape = line), size = 3, stroke = 3) +
-  scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
-  scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
-  scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
-  # scale_linetype_manual(values = c("Standard" = "solid", "Middle Odds" = "dotdash", "End Odds" = "dotted")) +
+  stat_summary(aes(shape = genotype), geom = "point", fun = mean, size = 3, stroke = 3) +
+  scale_color_manual(values = c("Base case" = "black",
+                                "CNO 3mg/kg" = "violetred", "CNO 5mg/kg" = "royalblue")) +
+  scale_linetype_manual(values = c("WT" = "solid", "Het" = "dotdash")) +
   scale_x_continuous(breaks = seq(2, 6, by = 1)) +
   labs(x = "Position of different 'go tone'",
        y = "Reaction time\nNormalized by rat",
-       fill = "Line", shape = "Line",
-       color = "Genotype",
+       fill = "Treatment", color = "Treatment",
+       shape = "Genotype", linetype = "Genotype",
        linetype = "Condition") +
   theme_ipsum_es() +
   guides(colour = guide_legend(override.aes = list(linewidth = 1))) +
