@@ -11,6 +11,8 @@ octave_core_columns = c("date", "rat_name", "rat_ID", "invalid",
 octave_core_data = dataset %>% 
   # remove invalid data
   filter(invalid != "TRUE") %>%
+  # drop TP3 (neuologically odd, euth early)
+  filter(rat_name != "TP3") %>%
   # Get essential columns in usable form; expands the dataframe
   unnest_wider(assignment) %>% unnest_wider(stats) %>%
   select(all_of(octave_core_columns)) %>%
@@ -276,7 +278,7 @@ Octave_graph =
   guides(colour = guide_legend(override.aes = list(linewidth = 1))) +
   theme(legend.key.width = unit(1.25,"cm"))
 
-print(Octave_graph)
+# print(Octave_graph)
 
 Octave_graph_by_Type =
   ggplot(discrimination_FA_table_by_type %>%
@@ -316,7 +318,7 @@ Octave_graph_by_Type =
          color = "Genotype", linetype = "Detail") +
     theme_ipsum_es()
 
-print(Octave_graph_by_Type)
+# print(Octave_graph_by_Type)
 
 discrimination_FA_n_table_by_Type %>%
   filter(detail == "Normal") %>%
@@ -362,7 +364,7 @@ Octave_graph_by_Range =
          color = "Genotype", linetype = "Detail") +
     theme_ipsum_es()
 
-print(Octave_graph_by_Range)
+# print(Octave_graph_by_Range)
 
 
 # Individual Rxn Graphs -------------------------------------------------------
@@ -407,7 +409,7 @@ octave_overall_graph =
        title = "Discrimination across an octave") +
   theme_ipsum_es()
 
-print(octave_overall_graph)
+# print(octave_overall_graph)
 
 
 octave_individual_graphs =
@@ -509,7 +511,7 @@ Octave_graph_Reversal_learning =
                padding = unit(c(1, 0.75), "char")
              )) +
     # limits on x-axis
-    xlim(-4, 50) +
+    xlim(-4, 25) +
     scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
     scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
     scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
@@ -537,14 +539,8 @@ Octave_graph_Reversal_learning_dprime =
                size = 2, stroke = 2) +
   # Mark the Day 0 is average
   geom_text(aes(x = 1.8, y = 3.5, label = "Average")) +
-  # Add n table
-  # annotate(geom = "table", x = 3, y = 26,
-  #          label = list(octave_training_table %>%
-  #                         filter(detail %in% c("Reversed"))),
-  #          table.theme = ttheme_gtplain(
-  #            padding = unit(c(1, 0.75), "char")
-  #          )) +
-  # limits on x-axis
+  # Add criterion line
+  geom_hline(aes(yintercept = 2.2), linewidth = 1.5, linetype = "dashed", color = "goldenrod") +
   xlim(-4, 50) +
   scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
   scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
