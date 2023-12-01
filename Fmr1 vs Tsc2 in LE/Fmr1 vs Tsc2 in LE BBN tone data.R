@@ -14,7 +14,13 @@ core_data = dataset %>%
   # Only keep relevant Experiments
   filter(experiment %in% c("Fmr1-LE", "Tsc2-LE")) %>%
   # drop Oddball and Octave
-  filter(! phase %in% c("Octave", "Tone-BBN"))
+  filter(! phase %in% c("Octave", "Tone-BBN")) %>%
+  left_join(rat_decoder, by = join_by(rat_ID == Rat_ID)) %>%
+  rename(sex = Sex) %>%
+  mutate(gene = str_extract(Genotype, pattern = "(Fmr1|Tsc2)"), 
+         background = str_extract(Genotype, pattern = "(LE|SD)"),
+         line = glue("{gene}-{background}"),
+         genotype = str_extract(Genotype, pattern = "(WT|KO|Het)$"))
 
 # Calculate Overall TH ----------------------------------------------------
 
@@ -42,7 +48,7 @@ TH_table = core_data %>%
   # Sort for ordered
   arrange(rat_ID, rat_name, Freq, Dur, dB) %>%
   #Prep for Calculate_TH function
-  nest(data = c(dB, dprime), .by = c(rat_ID, rat_name, detail, Freq, Dur)) %>% 
+  nest(data = c(dB, dprime), .by = c(rat_ID, rat_name, sex, genotype, line, detail, Freq, Dur)) %>% 
   mutate(TH = map_dbl(data, Calculate_TH)) %>%
   select(-data) 
 
@@ -57,7 +63,7 @@ Rxn_table = core_data %>%
   # Get Reaction times:
   unnest(reaction) %>%
   # Use rat_ID because its sure to be unquie
-  group_by(rat_ID, rat_name, detail, `Freq (kHz)`, `Dur (ms)`, `Inten (dB)`) %>%
+  group_by(rat_ID, rat_name, sex, genotype, line, detail, `Freq (kHz)`, `Dur (ms)`, `Inten (dB)`) %>%
   # Get Averages
   transmute(Rxn = mean(Rxn, na.rm = TRUE) * 1000) %>% 
   unique()
@@ -85,7 +91,7 @@ Rxn_table_over_TH = Rxn_table %>%
   # Prep for TH_filter function
   ungroup() %>%
   mutate(ID = rat_ID, Dur = `Dur (ms)`, Freq = `Freq (kHz)`, Inten = `Inten (dB)`) %>%
-  nest(data = c(ID, Freq, Dur, Inten, Rxn), .by = c(rat_ID, rat_name, detail, `Freq (kHz)`, `Dur (ms)`)) %>%
+  nest(data = c(ID, Freq, Dur, Inten, Rxn), .by = c(rat_ID, rat_name, sex, genotype, line, detail, `Freq (kHz)`, `Dur (ms)`)) %>%
   # Apply TH_filter
   mutate(data = map(data, TH_filter)) %>%
   unnest(data) %>%
@@ -105,30 +111,13 @@ Learning_streak = core_data %>%
   dplyr::filter(task %in% c("Training")) %>%
   group_by(rat_ID) %>% # pregroup this so that numbering restarts at 1 for each rat
   mutate(groupid = data.table::rleid(phase, task, detail)) %>%
-  group_by(rat_ID, groupid, phase, task, detail) %>%
+  group_by(rat_ID, sex, genotype, line, groupid, phase, task, detail) %>%
   summarise(running_streak = n(), .groups = "drop")
 
 
-# Decode for analysis -----------------------------------------------------
-core_data = left_join(core_data,
-                      select(rat_decoder, all_of(c("rat_ID", "line", "genotype", "sex"))),
-                      by = "rat_ID")
+# Renaming -----------------------------------------------------
 
-TH_table = left_join(TH_table,
-                     select(rat_decoder, all_of(c("rat_ID", "line", "genotype", "sex"))),
-                     by = "rat_ID") %>%
-  rename(Frequency = Freq, Duration = Dur)
+TH_table = rename(TH_table, Frequency = Freq, Duration = Dur)
 
+Rxn_table = rename(Rxn_table, Frequency = `Freq (kHz)`, Duration = `Dur (ms)`, Intensity = `Inten (dB)`)
 
-Rxn_table_over_TH = left_join(Rxn_table_over_TH,
-                              select(rat_decoder, all_of(c("rat_ID", "line", "genotype", "sex"))),
-                              by = "rat_ID")
-
-Rxn_table = left_join(Rxn_table,
-                      select(rat_decoder, all_of(c("rat_ID", "line", "genotype", "sex"))),
-                      by = "rat_ID") %>%
-  rename(Frequency = `Freq (kHz)`, Duration = `Dur (ms)`, Intensity = `Inten (dB)`)
-
-Learning_streak = left_join(Learning_streak,
-                            select(rat_decoder, all_of(c("rat_ID", "line", "genotype", "sex"))),
-                            by = "rat_ID")

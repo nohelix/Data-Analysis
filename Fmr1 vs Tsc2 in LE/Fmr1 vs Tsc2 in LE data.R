@@ -29,7 +29,8 @@ library(psycho); library(ggplot2); library(nortest); library(hrbrthemes); librar
 
 # Load Necessary Datasets -------------------------------------------------
 load(paste0(projects_folder, "run_archive.Rdata"), .GlobalEnv)
-rat_decoder = data.table::fread("rat_decoder.csv")
+rat_decoder = fread(glue("{projects_folder}/rat_archive.csv"),
+                    select = c("Rat_ID", "DOB", "Sex", "Genotype", "HL_date"))
 
 # Remove bad data
 #TODO: deal with multiple runs in a day
