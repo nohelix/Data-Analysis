@@ -1,6 +1,6 @@
-source("Fmr1 vs Tsc2 in LE data.R")
 library(ggpmisc) # for easy adding of tables to graph
-library(glue)
+source("Fmr1 vs Tsc2 in LE data.R")
+
 
 # Get core data -----------------------------------------------------------
 octave_core_columns = c("date", "rat_name", "rat_ID", "invalid",
@@ -175,6 +175,14 @@ octave_holding_normal_short_data =
   group_by(rat_ID) %>%
     #select only the last 3 days of holding prior to reversal
   do(arrange(., desc(date)) %>% head(n = 3) %>% mutate(day = row_number() - 4))
+
+octave_training_data =
+  octave_core_data %>%
+  unnest(dprime) %>%
+  filter(task %in% c("Training", "Holding") & detail == "Normal") %>%
+  # set date as relative
+  group_by(rat_ID) %>%
+  do(arrange(., date) %>% mutate(day = row_number()))
 
 octave_reversal_data =
   octave_core_data %>%
@@ -485,6 +493,35 @@ Octave_learning_plot =
 
 # print(Octave_learning_plot)
 
+Octave_graph_learning_dprime =
+  ggplot(filter(octave_training_data, task != "Discriminiation"),
+         aes(x = day, 
+             # y = FA_percent * 100,
+             y = dprime,
+             color = genotype, fill = line,
+             group = interaction(line, genotype))) +
+  # Individual lines
+  geom_line(aes(group = interaction(line, genotype, rat_ID)), alpha = 0.3) +
+  # mean for genotypes across all frequencies
+  stat_summary(fun = mean, geom = "line", linewidth = 1.5) +
+  # mean for each frequency by genotype
+  stat_summary(aes(shape = line), fun = mean, geom = "point",
+               size = 2, stroke = 2) +
+  # Add criterion line
+  geom_hline(aes(yintercept = 2.2), linewidth = 1.5, linetype = "dashed", color = "goldenrod") +
+  xlim(1, 50) +
+  scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
+  scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
+  scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
+  labs(x = "Days on Reversal",
+       y = "dprime",
+       title = "Reversal",
+       fill = "Line", shape = "Line",
+       color = "Genotype") +
+  theme_ipsum_es()
+
+# print(Octave_graph_learning_dprime)
+
 Octave_graph_Reversal_learning =
   ggplot(filter(octave_reversal_data, task != "Discriminiation"),
          aes(x = day, 
@@ -511,7 +548,7 @@ Octave_graph_Reversal_learning =
                padding = unit(c(1, 0.75), "char")
              )) +
     # limits on x-axis
-    xlim(-4, 25) +
+    xlim(-4, 30) +
     scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
     scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
     scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
@@ -533,6 +570,10 @@ Octave_graph_Reversal_learning_dprime =
   # Individual lines
   geom_line(aes(group = interaction(line, genotype, rat_ID)), alpha = 0.3) +
   # mean for genotypes across all frequencies
+  stat_summary(fun = mean,
+               fun.min = function(x) mean(x) - FSA::se(x),
+               fun.max = function(x) mean(x) + FSA::se(x),
+               geom = "errorbar", width = 0, linewidth = 0.7, position = position_dodge(0.1)) +
   stat_summary(fun = mean, geom = "line", linewidth = 1.5) +
   # mean for each frequency by genotype
   stat_summary(aes(shape = line), fun = mean, geom = "point",
@@ -541,7 +582,7 @@ Octave_graph_Reversal_learning_dprime =
   geom_text(aes(x = 1.8, y = 3.5, label = "Average")) +
   # Add criterion line
   geom_hline(aes(yintercept = 2.2), linewidth = 1.5, linetype = "dashed", color = "goldenrod") +
-  xlim(-4, 50) +
+  xlim(-4, 40) +
   scale_shape_manual(values = c("Tsc2" = 21, "Fmr1" = 24)) +
   scale_fill_manual(values = c("Tsc2" = "slategrey", "Fmr1" = "tan4")) +
   scale_color_manual(values = c("WT" = "black", "Het" = "blue", "KO" = "red")) +
