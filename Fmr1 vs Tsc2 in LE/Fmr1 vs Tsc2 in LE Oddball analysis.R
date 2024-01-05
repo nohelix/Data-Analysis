@@ -271,20 +271,10 @@ oddball_frequency_basecase =
   # scale_shape_manual(values = c("4" = 21, "8" = 22, "16" = 23, "32" = 24)) +
   scale_x_continuous(breaks = seq(2, 6, by = 1)) +
   labs(x = "Position of different 'go tone'",
-       y = "Reaction time", shape = "Challenge",
+       y = "Reaction time", shape = "Challenge", linetype = "Challenge",
        color = "Genotype") +
-  # table on graph
-  annotate(geom = "table", x = 5.9, y = 1, 
-           label = list(filter(oddball_reaction_by_frequency, challenge %in% condition_to_graph) %>%
-                          group_by(line, genotype, challenge) %>% 
-                          summarise(n = length(unique(rat_ID)), .groups = "drop") %>%
-                          select(line, genotype, challenge, n)
-           ),
-           table.theme = ttheme_gtplain(
-             padding = unit(c(0.9, 0.9), "char")
-           ),
-           vjust = -2, hjust = -0.25) +
-  theme_ipsum_es()
+  theme_ipsum_es() +
+  theme(legend.key.width = unit(1.5,"cm"))
 
 print(oddball_frequency_basecase)
 
@@ -373,14 +363,16 @@ oddball_odds_graph =
 
 print(oddball_odds_graph)
 
-# oddball_CNO_graph =
+oddball_CNO_graph =
   oddball_core_data %>%
   # Omit Training & Reset days
   dplyr::filter(! task %in% c("Training")) %>%
   # only keep rats that have been treated with CNO
   filter(rat_name %in% c("RP3", "RP4", "BP2")) %>%
+  # drop extra 32kHz on BP2
+  filter(rat_name != "BP2" & date != 20231215) %>%
   # only keep relevant trial types/days
-  filter(task %in% c("Base case", "CNO 3mg/kg", "CNO 5mg/kg")) %>%
+  filter(task %in% c("Base case", "Saline", "CNO 5mg/kg")) %>%
   # break into frequencies so that we can keep a set number
   mutate(frequency = str_extract(file_name, pattern = "^[:digit:]+?(?=kHz)") %>% 
            factor(levels = c("4", "8", "16", "32")),) %>% 
@@ -397,11 +389,11 @@ print(oddball_odds_graph)
   do(mutate(., reaction_norm = reaction/filter(., position == min(position))$reaction)) %>%
   ungroup %>%
   ggplot(aes(x = position, y = reaction_norm, 
-             color = task, linetype = genotype,
-             group = interaction(genotype, task))) +
+             color = task,
+             group = interaction(task))) +
   stat_summary(geom = "line", fun = mean, linewidth = 2) +
   stat_summary(aes(shape = genotype), geom = "point", fun = mean, size = 3, stroke = 3) +
-  scale_color_manual(values = c("Base case" = "black",
+  scale_color_manual(values = c("Base case" = "black", "Saline"  = "grey50",
                                 "CNO 3mg/kg" = "violetred", "CNO 5mg/kg" = "royalblue")) +
   scale_linetype_manual(values = c("WT" = "solid", "Het" = "dotdash")) +
   scale_x_continuous(breaks = seq(2, 6, by = 1)) +
