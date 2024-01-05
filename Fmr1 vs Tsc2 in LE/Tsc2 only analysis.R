@@ -1,3 +1,5 @@
+source("Fmr1 vs Tsc2 in LE BBN tone data.R")
+
 # Variables ---------------------------------------------------------------
 
 drop_TP3 = TRUE
@@ -87,7 +89,9 @@ summary(Tsc2.TH.BBN.aov)
 
 # Only primary effects so no post-Hoc needed
 
-## Graph
+
+# TH Graph ----------------------------------------------------------------
+
 Tsc2.TH.BBN.aov.data %>%
   {if (drop_TP3) filter(., rat_name != "TP3")} %>%
   filter(detail != "Rotating") %>%
@@ -158,19 +162,22 @@ Tsc2_Rxn_over_TH$Gaus = LambertW::Gaussianize(Tsc2_Rxn_over_TH$Rxn)[, 1]
 
 # Graphs ------------------------------------------------------------------
 
-single_Frequency = 50
+single_Frequency = "BBN"
   
 Rxn_table %>%
   {if (drop_TP3) filter(., rat_name != "TP3")} %>%
   filter(line == "Tsc2-LE") %>%
+  filter(Duration %in% c(300)) %>%
   # rename(Intensity = `Inten (dB)`) %>%
+  filter(detail == "Alone") %>%
+  mutate(group = if_else(rat_ID < 314, "Group 1", "Group 2")) %>%
+  # filter(rat_ID < 314) %>%
   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN")) %>%
   filter(! str_detect(Intensity, pattern = "5$")) %>%
   filter(Intensity < 90 & Intensity > 10) %>%
-  # filter(Frequency == single_Frequency) %>%
-  ggplot(aes(x = Intensity, y = Rxn, 
-             color = genotype, linetype = as.factor(Duration), 
-             group = interaction(Duration, genotype))) +
+  filter(Frequency == single_Frequency) %>%
+  ggplot(aes(x = Intensity, y = Rxn, linetype = as.factor(group),
+             color = genotype, group = interaction(Duration, group, genotype))) +
   stat_summary(fun = mean,
                fun.min = function(x) mean(x) - se(x),
                fun.max = function(x) mean(x) + se(x),
@@ -180,22 +187,21 @@ Rxn_table %>%
   stat_summary(fun = mean, geom = "line", position = position_dodge(1)) +
   labs(x = "Intensity (dB)",
        y = "Reaction time (ms, mean +/- SE)",
-       color = "Genotype",
+       color = "Genotype", linetype = "",
        caption = if_else(drop_TP3, "Without Het F TP3", "With TP3")) +
   # scale_linetype_manual(values = c("Tsc2-LE" = "solid", "Tsc2-LE" = "longdash")) +
   scale_color_manual(values = c("WT" = "black", "Het" = "deepskyblue", "KO" = "red")) +
   scale_x_continuous(breaks = seq(0, 90, by = 10)) +
+  facet_wrap(~ Duration) +
   theme_classic() +
   theme(
     plot.title = element_text(hjust = 0.5),
     panel.grid.major.x = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255))
-  ) +
-  labs(title = single_Frequency,
-       caption = "Combines all testing conditions (Alone, Mixed, & Rotating)") +
-  theme(legend.position = c(0.88, 0.8),
-        legend.background=element_blank())
+  ) 
+  # theme(legend.position = c(0.88, 0.8),
+  #       legend.background=element_blank())
 
-ggsave(filename = paste0("Tsc2_Rxn_", single_Frequency,".jpg"),
-       plot = last_plot(),
-       width = 5, height = 6, units = "in", dpi = 300)
+# ggsave(filename = paste0("Tsc2_Rxn_all_freq.jpg"),
+# plot = last_plot(),
+# width = 5, height = 6, units = "in", dpi = 300)
 
