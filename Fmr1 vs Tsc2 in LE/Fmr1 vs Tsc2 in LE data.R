@@ -20,7 +20,7 @@ library(data.table)
 
 # data manipulation
 library(tidyverse); library(dplyr); library(tidyr); library(rlang); library(stringr); 
-library(purrr); library(forcats); library(broom)
+library(purrr); library(forcats); library(broom); library(glue)
 
 # analysis & visualization
 library(psycho); library(ggplot2); library(nortest); library(hrbrthemes); library(gtools)
