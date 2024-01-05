@@ -60,7 +60,7 @@ BBN_TempInt_TH =
                            rat_ID %in% Group_1 ~ "Group 1",
                            rat_ID %in% Group_2 ~ "Group 2",
                            rat_ID %in% Group_3 & detail == "Recheck" ~ "Group 3 Redo",
-                           rat_ID %in% Group_3 ~ "Group 3",
+                           rat_ID %in% Group_3 & detail != "Recheck" ~ "Group 3",
                            .default = "Unknown") %>% ordered(levels = c("Pilot", "Group 1", "Group 2", "Group 3", "Group 3 Redo")))
 
 BBN_TempInt_Rxn =
@@ -70,7 +70,7 @@ BBN_TempInt_Rxn =
   # Remove rat with permanent threshold shifts
   filter(rat_ID != 191 | rat_name != "Green12") %>%
   # limit to BBN with no background noise
-  filter(detail %in% c("Alone", "Recheck") & Frequency == 0 & BG_Intensity  == "None")%>%
+  filter(detail %in% c("Alone", "Recheck") & Frequency == 0 & BG_Intensity  == "None") %>%
   # Add group numbers to look for effects between groups
   mutate(group = case_when(rat_ID %in% Group_TTS_pilot ~ "Pilot",
                            rat_ID %in% Group_1 ~ "Group 1",
@@ -108,7 +108,8 @@ Threshold_Recheck =
               TH_2 = if(! is_na(filter(., detail == "Recheck")$TH)) filter(., detail == "Recheck")$TH
                         else NA_integer_,
               Improvement = round(TH_1 - TH_2, digits = 1))
-       )
+       ) %>%
+  arrange(Duration, rat_ID)
 
 print(Threshold_Recheck)
 
@@ -193,7 +194,8 @@ BBN_TempInt_TH %>%
   scale_color_manual(values = c("coral", "grey30"), guide = "legend") +
   labs(title = "BBN thresholds by durations",
        x = "Stimulus Duration (ms)",
-       y = "Threshold (dB)"
+       y = "Threshold (dB)",
+       color = "Hearing loss?"
   ) +
   # facet_wrap( ~ HL_state, ncol = 5, scales = "free_x") +
   theme_classic() +
@@ -252,22 +254,25 @@ BBN_alone_Rxn_pilot %>%
 #        width = 8, height = 6, units = "in", dpi = 300)
 
 
-TempInt_Rxn_Graph = 
+TempInt_Rxn_Graph =
 BBN_TempInt_Rxn %>%
-  filter(Intensity < 95 & Intensity > 24) %>%
+  filter(Intensity < 95 & Intensity > 19) %>%
+  # filter(rat_name != "Green21") %>%
   filter(HL_state == "baseline") %>%
   mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
            factor(levels = c("4", "8", "16", "32", "BBN")),
          BG = if_else(BG_type == "None", "None", paste0(BG_type, "\n", BG_Intensity, "dB")),
          HL_state = factor(HL_state, levels = c("baseline", "HL", "recovery", "post-HL"))) %>%
   filter(HL_state %in% c("baseline", "post-HL")) %>%
-  filter(group %in% c("Group 1", "Group 3", "Group 2", "Group 3 Redo")) %>%
+  # filter(group %in% c("Group 1", "Group 3", "Group 2", "Group 3 Redo")) %>%
+  filter(group %in% c("Group 3", "Group 3 Redo")) %>%
   ggplot(aes(x = Intensity, y = Rxn, 
              color = as.factor(Duration), shape = as.factor(Duration),
              group = interaction(HL_state, as.factor(Duration)))) +
     # Individual lines
-    geom_line(aes(group = interaction(HL_state, as.factor(Duration), rat_ID)),
-              alpha = 0.5) +
+    # geom_line(aes(linetype = as.factor(rat_name),
+    #               group = interaction(HL_state, as.factor(Duration), rat_ID)),
+    #           alpha = 0.5) +
     stat_summary(fun = mean,
                  fun.min = function(x) mean(x) - FSA::se(x),
                  fun.max = function(x) mean(x) + FSA::se(x),
@@ -277,7 +282,8 @@ BBN_TempInt_Rxn %>%
     labs(x = "Intensity (dB)",
          y = "Reaction time (ms, mean +/- SE)",
          color = "Duration", shape = "Duration",
-         title = "Reaction curves for BBN showing temporal integration at baseline"
+         title = "Reaction curves for BBN showing temporal integration at baseline",
+         linetype = "Rat"
          ) +
     scale_x_continuous(breaks = seq(-50, 90, by = 10)) +
     theme_classic() +
@@ -356,3 +362,45 @@ print(TempInt_Rxn_Graph)
 #   theme(#legend.position = c(0.9, 0.8),
 #         legend.background=element_blank())
 
+# Individual Graphs -------------------------------------------------------
+
+BBN_TempInt_Rxn_individual_graphs =
+  BBN_TempInt_Rxn %>%
+  filter(Intensity < 95 & Intensity > 19) %>%
+  mutate(Frequency = str_replace_all(Frequency, pattern = "0", replacement = "BBN") %>%
+           factor(levels = c("4", "8", "16", "32", "BBN"))) %>%
+  filter(group %in% c("Group 3", "Group 3 Redo")) %>%
+  group_by(rat_ID, rat_name) %>%
+  do(
+    single_rat_graph =
+    ggplot(data = .,
+           aes(x = Intensity, y = Rxn, 
+               color = as.factor(Duration), 
+               linetype = group, shape = group,
+               group = interaction(group, as.factor(Duration)))) +
+    # Individual lines
+    stat_summary(fun = mean,
+                 fun.min = function(x) mean(x) - FSA::se(x),
+                 fun.max = function(x) mean(x) + FSA::se(x),
+                 geom = "errorbar", width = 1, position = position_dodge(1)) +
+    stat_summary(fun = mean, geom = "point", position = position_dodge(1), size = 2) +
+    geom_smooth(se = FALSE, na.rm = TRUE, linewidth = 1) +
+    labs(x = "Intensity (dB)",
+         y = "Reaction time (ms, mean +/- SE)",
+         color = "Duration", 
+         shape = "Group", linetype = "Group",
+         title = glue("{unique(.$rat_name)} - Reaction curves for BBN at baseline"),
+    ) +
+    scale_x_continuous(breaks = seq(-50, 90, by = 10)) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      panel.grid.major.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+      panel.grid.minor.y = element_line(color = rgb(235, 235, 235, 255, maxColorValue = 255)),
+    ) +
+    theme(#legend.position = c(0.9, 0.8),
+      legend.background=element_blank())
+  )
+
+# Show all the individual graphs
+BBN_TempInt_Rxn_individual_graphs$single_rat_graph
